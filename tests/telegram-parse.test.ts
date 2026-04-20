@@ -17,4 +17,16 @@ describe("parseTelegramCommand", () => {
   it("returns null for non-commands", () => {
     expect(parseTelegramCommand("hello")).toBeNull();
   });
+
+  it("parses /create", () => {
+    expect(parseTelegramCommand("/create crm-app saas-template")).toEqual({
+      kind: "create",
+      name: "crm-app",
+      type: "saas-template",
+    });
+  });
+
+  it("parses /reject", () => {
+    expect(parseTelegramCommand("/reject ACME-1842")).toEqual({ kind: "reject", taskId: "ACME-1842" });
+  });
 });

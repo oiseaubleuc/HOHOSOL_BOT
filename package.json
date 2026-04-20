@@ -9,6 +9,8 @@
   },
   "scripts": {
     "dev": "node --import tsx/esm src/cli.ts",
+    "bot:start": "node --import tsx/esm src/cli.ts telegram",
+    "bot:run": "node --import tsx/esm src/cli.ts run-id",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/cli.js",
     "test": "vitest run",

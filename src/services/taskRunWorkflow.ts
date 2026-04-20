@@ -11,6 +11,7 @@ import { executeProposal } from "../run/executor.js";
 import { formatLaravelChangeReport } from "../report/laravelReport.js";
 import type { CommandResult, RunProposal } from "../types/commands.js";
 import type { Notifier } from "../modules/notifications/types.js";
+import type { WorkspaceManager } from "../workspace/workspaceManager.js";
 
 export type TaskRunWorkflowStatus = "ok" | "error" | "unknown_project";
 
@@ -23,6 +24,8 @@ export interface TaskRunWorkflowOptions {
   reportOut: string;
   /** When null, lifecycle notifications are skipped (e.g. Telegram bot replies instead). */
   notifier: Notifier | null;
+  /** When set, all paths touched must remain inside the workspace root. */
+  workspace?: WorkspaceManager;
 }
 
 export interface TaskRunWorkflowResult {
@@ -52,6 +55,10 @@ export async function runTaskWorkflow(opts: TaskRunWorkflowOptions): Promise<Tas
   try {
     const task = await loadTaskFromFile(opts.taskPath);
     taskContext = { id: task.id, title: task.title };
+    opts.workspace?.assertPathInWorkspace(task.projectRoot);
+    opts.workspace?.assertPathInWorkspace(opts.proposalOut);
+    opts.workspace?.assertPathInWorkspace(opts.reportOut);
+
     await notifySafe(opts.notifier, (n) =>
       n.notify({
         kind: "task_started",
@@ -122,6 +129,9 @@ export async function runTaskWorkflow(opts: TaskRunWorkflowOptions): Promise<Tas
         flavor: profile.flavor,
         extraAllowedPrefixes: botConfig.extraAllowedPrefixes ?? [],
         approveChecksum: approve,
+        assertCwdInWorkspace: opts.workspace
+          ? (cwd) => opts.workspace!.assertPathInWorkspace(cwd)
+          : undefined,
       });
     }
 
@@ -194,6 +204,7 @@ export interface ExecuteProposalWorkflowOptions {
   proposalPath: string;
   approveChecksum: string;
   notifier: Notifier | null;
+  workspace?: WorkspaceManager;
 }
 
 export interface ExecuteProposalWorkflowResult {
@@ -211,6 +222,9 @@ export async function executeProposalWorkflow(
   try {
     const proposal = await readJsonFile<RunProposal>(path.resolve(opts.proposalPath));
     proposalTaskId = proposal.taskId;
+    opts.workspace?.assertPathInWorkspace(proposal.projectRoot);
+    opts.workspace?.assertPathInWorkspace(path.resolve(opts.proposalPath));
+
     await notifySafe(opts.notifier, (n) =>
       n.notify({
         kind: "task_started",
@@ -227,6 +241,9 @@ export async function executeProposalWorkflow(
       flavor: profile.flavor,
       extraAllowedPrefixes: botConfig.extraAllowedPrefixes ?? [],
       approveChecksum: opts.approveChecksum,
+      assertCwdInWorkspace: opts.workspace
+        ? (cwd) => opts.workspace!.assertPathInWorkspace(cwd)
+        : undefined,
     });
 
     const failed = results.find((r) => r.exitCode !== 0);

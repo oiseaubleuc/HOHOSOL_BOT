@@ -1,38 +1,35 @@
+import fs from "node:fs/promises";
 import path from "node:path";
+import os from "node:os";
 import type { ParsedTelegramCommand } from "./types.js";
 import type { TelegramClient } from "./telegramClient.js";
-import { TaskRegistry, resolveTasksDir } from "../../services/taskRegistry.js";
-import { PendingApprovalStore } from "../../services/pendingApprovalStore.js";
+import { TaskRegistry } from "../../services/taskRegistry.js";
 import { StatusService } from "../../services/statusService.js";
-import { runTaskWorkflow } from "../../services/taskRunWorkflow.js";
+import { ApprovalBus } from "../../approvals/approvalBus.js";
+import { RunningTaskRegistry } from "../../state/runningTasks.js";
+import { runAgentPipeline } from "../../execution/agentPipeline.js";
+import { createScaffoldedProject } from "../../projects/projectCreator.js";
+import type { WorkspaceManager } from "../../workspace/workspaceManager.js";
+import type { RuntimeConfig } from "../../config/runtimeConfig.js";
 
-export interface TelegramCommandContext {
-  cwd: string;
+export interface TelegramBotContext {
+  ws: WorkspaceManager;
+  cfg: RuntimeConfig;
   client: TelegramClient;
   chatId: number;
   registry: TaskRegistry;
-  pending: PendingApprovalStore;
   status: StatusService;
+  running: RunningTaskRegistry;
 }
 
-export async function dispatchTelegramCommand(
-  cmd: ParsedTelegramCommand,
-  ctx: TelegramCommandContext,
-): Promise<void> {
+export async function dispatchTelegramCommand(cmd: ParsedTelegramCommand, ctx: TelegramBotContext): Promise<void> {
   const send = (text: string) => ctx.client.sendMessage(ctx.chatId, text);
+  const bus = ApprovalBus.get();
 
   try {
     switch (cmd.kind) {
       case "start":
-        await send(
-          [
-            "devBOT — commands:",
-            "/tasks — list task ids",
-            "/run <taskId> — dry-run + save proposal (needs /approve next)",
-            "/approve <taskId> — execute last proposal for that task",
-            "/status — last action summary",
-          ].join("\n"),
-        );
+        await send("devBOT ready 🚀");
         ctx.status.record("/start");
         return;
 
@@ -40,12 +37,9 @@ export async function dispatchTelegramCommand(
         await ctx.registry.refresh();
         const tasks = ctx.registry.list();
         if (tasks.length === 0) {
-          await send(`No tasks found in ${resolveTasksDir(ctx.cwd)}`);
+          await send(`No tasks in ${ctx.ws.tasksDir()}`);
         } else {
-          await send(
-            "Tasks:\n" +
-              tasks.map((t) => `• ${t.id} — ${t.title}\n  ${t.filePath}`).join("\n"),
-          );
+          await send(tasks.map((t) => `• ${t.id} — ${t.title}`).join("\n"));
         }
         ctx.status.record("/tasks");
         return;
@@ -56,85 +50,141 @@ export async function dispatchTelegramCommand(
         const reg = ctx.registry.findById(cmd.taskId);
         if (!reg) {
           await send(`Unknown task id: ${cmd.taskId}. Try /tasks.`);
-          ctx.status.record(`/run ${cmd.taskId} (missing)`);
           return;
         }
-        const proposalOut = path.join(ctx.cwd, "proposals", `${reg.id}.proposal.json`);
-        const reportOut = path.join(ctx.cwd, "reports", `${reg.id}-dry-run.md`);
-        const res = await runTaskWorkflow({
-          taskPath: reg.filePath,
-          dryRun: true,
-          proposalOut,
-          reportOut,
-          notifier: null,
-        });
-        if (res.status !== "ok") {
-          await send(`Run failed (${cmd.taskId}): ${res.error ?? res.status}`);
-          ctx.status.record(`/run ${cmd.taskId} failed`);
+        if (ctx.running.isRunning(cmd.taskId)) {
+          await send(`Task ${cmd.taskId} is already running.`);
           return;
         }
-        ctx.pending.set({
-          taskId: reg.id,
-          taskPath: reg.filePath,
-          proposalPath: proposalOut,
-          reportPath: path.join(ctx.cwd, "reports", `${reg.id}-approved.md`),
-          checksum: res.proposalChecksum ?? "",
-          updatedAt: new Date().toISOString(),
+        setImmediate(() => {
+          void runAgentPipeline(cmd.taskId, reg.filePath, reg.title, {
+            ws: ctx.ws,
+            cfg: ctx.cfg,
+            running: ctx.running,
+            bus,
+          }).catch((err) => console.error("[devBOT] pipeline error", err));
         });
         await send(
           [
-            `Dry-run done for ${reg.id}.`,
-            `Checksum: ${res.proposalChecksum}`,
-            `Proposal: ${proposalOut}`,
-            `Report: ${res.reportPath}`,
-            "",
-            `Approve with: /approve ${reg.id}`,
+            `Started pipeline for ${cmd.taskId}.`,
+            `First gate: /approve ${cmd.taskId}`,
+            `Logs: ${ctx.ws.logFile(cmd.taskId)}`,
           ].join("\n"),
         );
-        ctx.status.record(`/run ${cmd.taskId} ok`);
+        ctx.status.record(`/run ${cmd.taskId}`);
         return;
       }
 
       case "approve": {
-        const pending = ctx.pending.get(cmd.taskId);
-        if (!pending) {
-          await send(`No pending proposal for ${cmd.taskId}. Run /run ${cmd.taskId} first.`);
-          ctx.status.record(`/approve ${cmd.taskId} (no pending)`);
-          return;
-        }
-        const res = await runTaskWorkflow({
-          taskPath: pending.taskPath,
-          dryRun: false,
-          approveChecksum: pending.checksum,
-          proposalOut: pending.proposalPath,
-          reportOut: pending.reportPath,
-          notifier: null,
-        });
-        if (res.status !== "ok") {
-          await send(`Approve failed (${cmd.taskId}): ${res.error ?? res.status}`);
-          ctx.status.record(`/approve ${cmd.taskId} failed`);
-          return;
-        }
-        if (res.commandFailed) {
-          await send(`Commands finished with errors for ${cmd.taskId}. See report: ${res.reportPath}`);
-          ctx.pending.clear(cmd.taskId);
-          ctx.status.record(`/approve ${cmd.taskId} commandFailed`);
-          return;
-        }
-        await send(`Approved run finished for ${cmd.taskId}.\nReport: ${res.reportPath}`);
-        ctx.pending.clear(cmd.taskId);
-        ctx.status.record(`/approve ${cmd.taskId} ok`);
+        const ok = bus.approveNext(cmd.taskId);
+        await send(ok ? `Approved next step for ${cmd.taskId}.` : `No pending approval for ${cmd.taskId}.`);
+        ctx.status.record(`/approve ${cmd.taskId}`);
+        return;
+      }
+
+      case "reject": {
+        const n = bus.rejectTask(cmd.taskId);
+        ctx.running.kill(cmd.taskId);
+        await send(`Rejected ${n} pending step(s) for ${cmd.taskId}.`);
+        ctx.status.record(`/reject ${cmd.taskId}`);
         return;
       }
 
       case "status": {
+        const running = ctx.running
+          .list()
+          .filter((t) => !["completed", "failed", "killed"].includes(t.phase));
         const s = ctx.status.get();
-        await send(`Status (${s.updatedAt}):\n${s.summary}`);
+        await send(
+          [
+            `Last action: ${s.summary} @ ${s.updatedAt}`,
+            running.length ? `Active: ${running.map((r) => `${r.taskId}:${r.phase}`).join(", ")}` : "No active pipelines.",
+          ].join("\n"),
+        );
+        return;
+      }
+
+      case "logs": {
+        const p = ctx.ws.logFile(cmd.taskId);
+        try {
+          const raw = await fs.readFile(p, "utf8");
+          const tail = raw.split("\n").slice(-40).join("\n");
+          await send(tail || "(empty log)");
+        } catch {
+          await send(`No log for ${cmd.taskId}`);
+        }
+        return;
+      }
+
+      case "report": {
+        const p = ctx.ws.reportFile(cmd.taskId, "agent");
+        try {
+          const raw = await fs.readFile(p, "utf8");
+          await send(raw.slice(0, 3500) || "(no agent report yet)");
+        } catch {
+          await send(`No agent report for ${cmd.taskId}`);
+        }
+        return;
+      }
+
+      case "kill": {
+        const ok = ctx.running.kill(cmd.taskId);
+        bus.rejectTask(cmd.taskId);
+        await send(ok ? `Kill signal sent for ${cmd.taskId}.` : `No runner for ${cmd.taskId}.`);
+        return;
+      }
+
+      case "workspace": {
+        const projects = await fs.readdir(ctx.ws.projectsDir()).catch(() => []);
+        await send(
+          [`Workspace: ${ctx.ws.root}`, `Tasks: ${ctx.ws.tasksDir()}`, `Projects:`, ...projects.map((p) => ` • ${p}`)].join(
+            "\n",
+          ),
+        );
+        return;
+      }
+
+      case "health": {
+        const mem = process.memoryUsage();
+        await send(
+          [
+            `devBOT health`,
+            `- cwd: ${process.cwd()}`,
+            `- workspace: ${ctx.ws.root}`,
+            `- rss: ${Math.round(mem.rss / 1024 / 1024)} MB`,
+            `- uptime: ${Math.round(process.uptime())}s`,
+            `- hostname: ${os.hostname()}`,
+          ].join("\n"),
+        );
+        return;
+      }
+
+      case "create": {
+        const key = `create:${cmd.name}`;
+        setImmediate(() => {
+          void (async () => {
+            try {
+              await createScaffoldedProject({
+                ws: ctx.ws,
+                projectName: cmd.name,
+                type: cmd.type,
+                dryRun: ctx.cfg.dryRun,
+                bus,
+                logKey: key,
+              });
+              await send(`Project ${cmd.name} (${cmd.type}) created under ${path.join(ctx.ws.projectsDir(), cmd.name)}`);
+            } catch (e) {
+              const m = e instanceof Error ? e.message : String(e);
+              await send(`Create failed: ${m}`);
+            }
+          })();
+        });
+        await send(`Create queued. Approve with: /approve ${key}`);
         return;
       }
 
       case "unknown":
-        await send(`Unknown command: ${cmd.raw}`);
+        await send(`Unknown: ${cmd.raw}`);
         ctx.status.record(`unknown: ${cmd.raw}`);
         return;
     }

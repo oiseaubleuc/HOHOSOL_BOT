@@ -35,8 +35,16 @@ export type { Notifier, NotificationPayload } from "./modules/notifications/type
 
 export { runTaskWorkflow, executeProposalWorkflow } from "./services/taskRunWorkflow.js";
 export { TaskRegistry, resolveTasksDir } from "./services/taskRegistry.js";
-export { PendingApprovalStore } from "./services/pendingApprovalStore.js";
 export { StatusService } from "./services/statusService.js";
 
 export { startTelegramCommandListener, parseTelegramCommand, TelegramClient } from "./modules/telegram/index.js";
 export type { ParsedTelegramCommand } from "./modules/telegram/types.js";
+
+export { loadRuntimeConfig, resetRuntimeConfigForTests } from "./config/runtimeConfig.js";
+export type { RuntimeConfig } from "./config/runtimeConfig.js";
+export { WorkspaceManager } from "./workspace/workspaceManager.js";
+export { getBotEnvironment, resetBotEnvironmentForTests } from "./workspace/init.js";
+export { ApprovalBus } from "./approvals/approvalBus.js";
+export { runAgentPipeline } from "./execution/agentPipeline.js";
+export { createScaffoldedProject } from "./projects/projectCreator.js";
+export type { ScaffoldType } from "./types/scaffold.js";

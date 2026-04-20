@@ -1,11 +1,11 @@
 import process from "node:process";
-import { config as loadDotenv } from "dotenv";
+import { loadRuntimeConfig } from "../../config/runtimeConfig.js";
 import { TelegramClient } from "./telegramClient.js";
 import { parseTelegramCommand } from "./parseCommand.js";
 import { dispatchTelegramCommand } from "./commandDispatcher.js";
-import { TaskRegistry, resolveTasksDir } from "../../services/taskRegistry.js";
-import { PendingApprovalStore } from "../../services/pendingApprovalStore.js";
 import { StatusService } from "../../services/statusService.js";
+import { RunningTaskRegistry } from "../../state/runningTasks.js";
+import { getBotEnvironment } from "../../workspace/init.js";
 
 function requireEnv(name: string): string {
   const v = process.env[name]?.trim();
@@ -23,28 +23,28 @@ function isAuthorizedChat(chatId: number, allowed: string): boolean {
  * Long-polling loop for Telegram commands. Stops on SIGINT/SIGTERM.
  */
 export async function startTelegramCommandListener(cwd = process.cwd()): Promise<void> {
-  loadDotenv();
+  const cfg = loadRuntimeConfig(cwd);
   const token = requireEnv("TELEGRAM_BOT_TOKEN");
   const allowedChat = requireEnv("TELEGRAM_CHAT_ID");
-  const timeout = Math.min(50, Math.max(1, Number(process.env.TELEGRAM_POLL_TIMEOUT ?? "45") || 45));
+  const timeout = cfg.telegramPollTimeoutSec;
 
+  const { ws, registry } = await getBotEnvironment(cwd);
   const client = new TelegramClient(token);
-  const registry = await TaskRegistry.load(resolveTasksDir(cwd));
-  const pending = new PendingApprovalStore();
   const status = new StatusService();
+  const running = new RunningTaskRegistry();
   status.record("Telegram listener started.");
 
   let offset = 0;
-  let running = true;
+  let runningLoop = true;
   const stop = () => {
-    running = false;
+    runningLoop = false;
   };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
 
-  console.log(`[devBOT] Telegram polling (timeout=${timeout}s). Tasks dir: ${resolveTasksDir(cwd)}`);
+  console.log(`[devBOT] Telegram polling (timeout=${timeout}s). Workspace: ${ws.root}`);
 
-  while (running) {
+  while (runningLoop) {
     let updates;
     try {
       updates = await client.getUpdates({ offset, timeout });
@@ -68,12 +68,13 @@ export async function startTelegramCommandListener(cwd = process.cwd()): Promise
       if (!parsed) continue;
 
       await dispatchTelegramCommand(parsed, {
-        cwd,
+        ws,
+        cfg,
         client,
         chatId: msg.chat.id,
         registry,
-        pending,
         status,
+        running,
       });
     }
   }

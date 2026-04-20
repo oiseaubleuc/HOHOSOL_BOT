@@ -3,24 +3,20 @@ import path from "node:path";
 import process from "node:process";
 import { createDefaultNotifier } from "./modules/notifications/index.js";
 import { executeProposalWorkflow, runTaskWorkflow } from "./services/taskRunWorkflow.js";
+import { getBotEnvironment } from "./workspace/init.js";
 
 function usage(): string {
   return [
-    `ai-dev-bot — Laravel-first local dev assistant (MVP)`,
+    `devBOT — remote AI developer assistant`,
     ``,
     `Usage:`,
     `  ai-dev-bot run --task <path/to/task.json> [--dry-run] [--report-out <file.md>] [--proposal-out <file.json>] [--approve-checksum <sha256>]`,
-    `  ai-dev-bot execute-proposal --proposal <file.json> --approve-checksum <sha256>`,
-    `  ai-dev-bot telegram   — poll Telegram for commands (requires TELEGRAM_* env, see README)`,
+    `  ai-dev-bot run-id <taskId>              — run task JSON from workspace/tasks/<id>.json`,
+    `  ai-dev-bot execute-proposal --proposal <file> --approve-checksum <sha256>`,
+    `  ai-dev-bot telegram                     — Telegram long-poll control`,
     ``,
-    `Flags:`,
-    `  --dry-run              Print plan + proposal; never executes subprocesses.`,
-    `  --approve-checksum     Required to execute allowlisted commands (must match proposal checksum).`,
-    ``,
-    `Project config (optional, at repo root):`,
-    `  ai-dev-bot.config.json  { "extraAllowedCommands": ["php|artisan|config:clear"] }`,
-    ``,
-    `Env (optional): see .env.example for Telegram + TASKS_DIR.`,
+    `Workspace: all bot outputs + default tasks live under WORKSPACE_PATH (default ~/devbot-workspace).`,
+    `See .env.example for OPENAI_API_KEY, GITHUB_*, TELEGRAM_*, DRY_RUN, AUTO_APPROVE.`,
     ``,
   ].join("\n");
 }
@@ -53,6 +49,7 @@ function parseArgs(argv: string[]): Record<string, string | boolean | string[]> 
 
 async function handleRun(args: Record<string, string | boolean | string[]>): Promise<number> {
   const notify = createDefaultNotifier();
+  const { ws } = await getBotEnvironment();
 
   const taskPath = String(args.task ?? "");
   if (!taskPath) {
@@ -65,11 +62,11 @@ async function handleRun(args: Record<string, string | boolean | string[]>): Pro
   const reportOut =
     typeof args["report-out"] === "string"
       ? String(args["report-out"])
-      : path.join(process.cwd(), "reports", `last-report.md`);
+      : ws.reportFile("cli-last", "report");
   const proposalOut =
     typeof args["proposal-out"] === "string"
       ? String(args["proposal-out"])
-      : path.join(process.cwd(), "proposals", `last.proposal.json`);
+      : ws.proposalFile("cli-last");
 
   const res = await runTaskWorkflow({
     taskPath: path.resolve(taskPath),
@@ -78,6 +75,7 @@ async function handleRun(args: Record<string, string | boolean | string[]>): Pro
     proposalOut,
     reportOut,
     notifier: notify,
+    workspace: ws,
   });
 
   if (res.proposalPath) console.log(`Wrote proposal: ${res.proposalPath}`);
@@ -98,8 +96,26 @@ async function handleRun(args: Record<string, string | boolean | string[]>): Pro
   return 0;
 }
 
+async function handleRunById(taskId: string): Promise<number> {
+  const { ws, registry } = await getBotEnvironment();
+  await registry.refresh();
+  const reg = registry.findById(taskId);
+  if (!reg) {
+    console.error(`Unknown task id: ${taskId} (look in ${ws.tasksDir()})`);
+    return 1;
+  }
+  const args: Record<string, string | boolean | string[]> = {
+    task: reg.filePath,
+    dryRun: true,
+    "report-out": ws.reportFile(taskId, "cli"),
+    "proposal-out": ws.proposalFile(taskId),
+  };
+  return handleRun(args);
+}
+
 async function handleExecuteProposal(args: Record<string, string | boolean | string[]>): Promise<number> {
   const notify = createDefaultNotifier();
+  const { ws } = await getBotEnvironment();
   const proposalPath = String(args.proposal ?? "");
   const approve = String(args["approve-checksum"] ?? "");
   if (!proposalPath || !approve) {
@@ -111,6 +127,7 @@ async function handleExecuteProposal(args: Record<string, string | boolean | str
     proposalPath,
     approveChecksum: approve,
     notifier: notify,
+    workspace: ws,
   });
 
   if (res.results) {
@@ -137,6 +154,14 @@ async function main(): Promise<void> {
 
   if (cmd === "run") {
     process.exit(await handleRun(args));
+  }
+  if (cmd === "run-id") {
+    const id = argv[1];
+    if (!id) {
+      console.error("Usage: ai-dev-bot run-id <taskId>");
+      process.exit(1);
+    }
+    process.exit(await handleRunById(id));
   }
   if (cmd === "execute-proposal") {
     process.exit(await handleExecuteProposal(args));
