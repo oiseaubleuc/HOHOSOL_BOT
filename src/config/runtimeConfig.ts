@@ -15,6 +15,8 @@ export interface RuntimeConfig {
   telegramBotToken?: string;
   telegramChatId?: string;
   telegramPollTimeoutSec: number;
+  whatsappAllowedChat?: string;
+  whatsappSessionName?: string;
 }
 
 function expandHome(p: string): string {
@@ -53,6 +55,8 @@ export function loadRuntimeConfig(cwd = process.cwd()): RuntimeConfig {
       50,
       Math.max(1, Number(process.env.TELEGRAM_POLL_TIMEOUT ?? "45") || 45),
     ),
+    whatsappAllowedChat: process.env.WHATSAPP_ALLOWED_CHAT?.trim() || undefined,
+    whatsappSessionName: process.env.WHATSAPP_SESSION_NAME?.trim() || undefined,
   };
 }
 

@@ -14,9 +14,10 @@ function usage(): string {
     `  ai-dev-bot run-id <taskId>              — run task JSON from workspace/tasks/<id>.json`,
     `  ai-dev-bot execute-proposal --proposal <file> --approve-checksum <sha256>`,
     `  ai-dev-bot telegram                     — Telegram long-poll control`,
+    `  ai-dev-bot whatsapp                     — WhatsApp command listener`,
     ``,
     `Workspace: all bot outputs + default tasks live under WORKSPACE_PATH (default ~/devbot-workspace).`,
-    `See .env.example for OPENAI_API_KEY, GITHUB_*, TELEGRAM_*, DRY_RUN, AUTO_APPROVE.`,
+    `See .env.example for OPENAI_API_KEY, GITHUB_*, TELEGRAM_*, WHATSAPP_*, DRY_RUN, AUTO_APPROVE.`,
     ``,
   ].join("\n");
 }
@@ -169,6 +170,11 @@ async function main(): Promise<void> {
   if (cmd === "telegram") {
     const { startTelegramCommandListener } = await import("./modules/telegram/startTelegramListener.js");
     await startTelegramCommandListener(process.cwd());
+    return;
+  }
+  if (cmd === "whatsapp") {
+    const { startWhatsAppCommandListener } = await import("./modules/whatsapp/startWhatsAppListener.js");
+    await startWhatsAppCommandListener(process.cwd());
     return;
   }
 

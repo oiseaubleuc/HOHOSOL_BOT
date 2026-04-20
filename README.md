@@ -7,7 +7,7 @@ Production-oriented **remote AI developer assistant** for your Mac (iMac worker 
 ```bash
 cd /path/to/dispatcher
 cp .env.example .env
-# Edit .env — set at least WORKSPACE_PATH (optional), TELEGRAM_* if you use Telegram.
+# Edit .env — set at least WORKSPACE_PATH (optional), TELEGRAM_* or WHATSAPP_* if you use chat control.
 
 npm install
 npm run typecheck
@@ -23,6 +23,7 @@ npm run build
 | `npm run build` | Emit `dist/` |
 | `npm run start -- …` | `node dist/cli.js …` |
 | `npm run bot:start` | Telegram long-poll listener |
+| `npm run bot:whatsapp` | WhatsApp listener (`whatsapp-web.js`) |
 | `npm run bot:run -- <taskId>` | Dry-run a task JSON from `WORKSPACE_PATH/tasks/<id>.json` |
 | `npm test` | Vitest |
 
@@ -33,6 +34,7 @@ devBOT run --task <path/to/task.json> [--dry-run] [--approve-checksum <sha256>]
 devBOT run-id <taskId>
 devBOT execute-proposal --proposal <file> --approve-checksum <sha256>
 devBOT telegram
+devBOT whatsapp
 ```
 
 ## Workspace (`WORKSPACE_PATH`)
@@ -75,6 +77,20 @@ npm run bot:start
 
 Set `AUTO_APPROVE=true` only on trusted machines to skip Telegram gates.
 
+## WhatsApp
+
+Requires `WHATSAPP_ALLOWED_CHAT` (full jid, for example `31612345678@c.us`).
+
+```bash
+npm run bot:whatsapp
+```
+
+On first start you get a QR in terminal. Scan it once with WhatsApp linked devices.
+
+### Commands
+
+WhatsApp reuses the same command set as Telegram (`/start`, `/tasks`, `/run`, `/approve`, etc.).
+
 ## Security
 
 - **Path sandbox:** anything the executor runs must have `cwd` under `WORKSPACE_PATH`.
@@ -91,7 +107,7 @@ See **`.env.example`** for:
 
 - `WORKSPACE_PATH`, `DRY_RUN`, `AUTO_APPROVE`
 - `OPENAI_API_KEY`
-- `TELEGRAM_*`, `GITHUB_*`
+- `TELEGRAM_*`, `WHATSAPP_*`, `GITHUB_*`
 
 ## Layout (src)
 
@@ -102,6 +118,7 @@ See **`.env.example`** for:
 - `src/integrations/github/` — git + PR helpers
 - `src/logging/`, `src/reports/`, `src/memory/`, `src/ai/`
 - `src/modules/telegram/` — polling + command dispatch
+- `src/modules/whatsapp/` — WhatsApp listener (reuses command dispatch)
 - `src/projects/` — `/create` scaffolds
 - `src/services/taskRunWorkflow.ts` — shared Laravel/Node inspect flow
 

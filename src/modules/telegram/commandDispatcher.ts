@@ -2,7 +2,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import type { ParsedTelegramCommand } from "./types.js";
-import type { TelegramClient } from "./telegramClient.js";
 import { TaskRegistry } from "../../services/taskRegistry.js";
 import { StatusService } from "../../services/statusService.js";
 import { ApprovalBus } from "../../approvals/approvalBus.js";
@@ -15,7 +14,9 @@ import type { RuntimeConfig } from "../../config/runtimeConfig.js";
 export interface TelegramBotContext {
   ws: WorkspaceManager;
   cfg: RuntimeConfig;
-  client: TelegramClient;
+  client: {
+    sendMessage(chatId: number | string, text: string): Promise<void>;
+  };
   chatId: number;
   registry: TaskRegistry;
   status: StatusService;
