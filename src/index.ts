@@ -32,3 +32,11 @@ export {
   truncateForTelegram,
 } from "./modules/notifications/index.js";
 export type { Notifier, NotificationPayload } from "./modules/notifications/types.js";
+
+export { runTaskWorkflow, executeProposalWorkflow } from "./services/taskRunWorkflow.js";
+export { TaskRegistry, resolveTasksDir } from "./services/taskRegistry.js";
+export { PendingApprovalStore } from "./services/pendingApprovalStore.js";
+export { StatusService } from "./services/statusService.js";
+
+export { startTelegramCommandListener, parseTelegramCommand, TelegramClient } from "./modules/telegram/index.js";
+export type { ParsedTelegramCommand } from "./modules/telegram/types.js";

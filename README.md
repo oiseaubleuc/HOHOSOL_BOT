@@ -59,6 +59,34 @@ If Telegram is misconfigured, the bot **still completes** its work; failures to 
 
 To add **Slack** later, implement the same `Notifier` interface (see `src/modules/notifications/types.ts`) and append it in `createDefaultNotifier()` in `src/modules/notifications/index.ts` alongside `TelegramNotifier`.
 
+## Telegram command listener (polling)
+
+In addition to outbound notifications, you can run a **long-polling** command loop that reacts to Telegram messages (no webhook).
+
+Requirements (same as notifications):
+
+- `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in `.env` (only that chat is accepted).
+- Optional: `TASKS_DIR` — folder of `*.json` tasks (default `./samples/tasks`).
+- Optional: `TELEGRAM_POLL_TIMEOUT` — seconds for each `getUpdates` long poll (default `45`, max `50`).
+
+Start from the repo root (so `.env` and task paths resolve):
+
+```bash
+npm run start -- telegram
+```
+
+Commands:
+
+| Command | Action |
+| --- | --- |
+| `/start` | Short help |
+| `/tasks` | Lists task ids discovered under `TASKS_DIR` |
+| `/run <taskId>` | Runs a **dry-run** workflow, writes `proposals/<id>.proposal.json` + report, stores pending approval in memory |
+| `/approve <taskId>` | Executes the allowlisted commands using the checksum from the pending `/run` for that id |
+| `/status` | Last handled command summary |
+
+`/approve` only works after `/run` for the same id in the **same process** (pending state is in-memory).
+
 ## Local setup (macOS)
 
 ```bash
@@ -134,6 +162,8 @@ Signatures use `|` between argv segments. Extra tails must look like safe flags 
 
 - `src/cli.ts` — entrypoint
 - `src/modules/notifications/` — `Notifier` abstraction, console + Telegram
+- `src/modules/telegram/` — `getUpdates` polling + command routing
+- `src/services/` — shared task run workflow, registry, pending approvals, status
 - `src/detect/` — Laravel + Node detection
 - `src/plan/` — Laravel-aware plans + Node fallback
 - `src/run/` — proposals, allowlist, executor
