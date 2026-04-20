@@ -110,3 +110,4 @@ See **`.env.example`** for:
 - **Web dashboard** is not included; the Telegram + CLI surface is designed so you can add HTTP later.
 - **Full code generation** is stubbed via reports + optional OpenAI coaching; plug your model or Cursor-style worker where `runTaskWorkflow` ends.
 - `npm run bot:run -- <taskId>` currently performs a **workspace dry-run** for that id; use `run` with `--approve-checksum` for execute, or Telegram `/run` + `/approve`.
+# HOHOSOL_BOT
