@@ -21,6 +21,44 @@ Laravel-first local assistant: scans the repo layout, generates an implementatio
 
 - A **real Laravel app** for command execution (the bundled `samples/fixtures/sample-laravel` is a **stub** for scans and dry-runs only).
 
+## Telegram notifications (optional)
+
+The CLI emits **console** messages for every lifecycle event. When `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are set (via environment or a `.env` file in the **current working directory**), it also sends the same events to Telegram.
+
+### Exact setup
+
+1. In Telegram, open a chat with [@BotFather](https://t.me/BotFather), run `/newbot`, and copy the **HTTP API token** (looks like `123456:ABC...`).
+2. Start a chat with your new bot (press **Start**) so the bot can message you.
+3. Discover your **numeric chat id**:
+   - Send any message to the bot, then open  
+     `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates`  
+     in a browser and find `"chat":{"id": ... }` for your user, **or**
+   - Use [@userinfobot](https://t.me/userinfobot) and copy your **Id** (often a positive integer; groups use negative ids).
+4. In the repo root (or wherever you run `npm run start` from), copy the example env file and fill in the values:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Edit `.env`:
+
+   ```env
+   TELEGRAM_BOT_TOKEN=paste_token_here
+   TELEGRAM_CHAT_ID=paste_chat_id_here
+   ```
+
+5. Run the CLI from that directory so `dotenv` loads `.env` (the tool loads it automatically on first notifier use):
+
+   ```bash
+   npm run start -- run --task samples/tasks/laravel-invoice-pdf.json --dry-run
+   ```
+
+You should receive messages for **task started**, **approval required** (dry-run or missing checksum), **task completed** (after successful approved execution), and **task failed** (errors or non-zero command exits).
+
+If Telegram is misconfigured, the bot **still completes** its work; failures to call the Telegram API are logged to stderr only.
+
+To add **Slack** later, implement the same `Notifier` interface (see `src/modules/notifications/types.ts`) and append it in `createDefaultNotifier()` in `src/modules/notifications/index.ts` alongside `TelegramNotifier`.
+
 ## Local setup (macOS)
 
 ```bash
@@ -95,6 +133,7 @@ Signatures use `|` between argv segments. Extra tails must look like safe flags 
 ## Layout
 
 - `src/cli.ts` — entrypoint
+- `src/modules/notifications/` — `Notifier` abstraction, console + Telegram
 - `src/detect/` — Laravel + Node detection
 - `src/plan/` — Laravel-aware plans + Node fallback
 - `src/run/` — proposals, allowlist, executor
@@ -105,7 +144,7 @@ Signatures use `|` between argv segments. Extra tails must look like safe flags 
 
 | Script | Purpose |
 | --- | --- |
-| `npm run dev` | `tsx src/cli.ts` (pass CLI args after `--`) |
+| `npm run dev` | `node --import tsx/esm src/cli.ts` (pass CLI args after `--`) |
 | `npm run build` | Emit `dist/` (Common tooling for CI) |
 | `npm run start` | `node dist/cli.js` |
 | `npm test` | Vitest unit tests |

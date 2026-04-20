@@ -24,3 +24,11 @@ export {
 } from "./run/allowlist.js";
 
 export { formatLaravelChangeReport } from "./report/laravelReport.js";
+
+export {
+  createDefaultNotifier,
+  ConsoleNotifier,
+  TelegramNotifier,
+  truncateForTelegram,
+} from "./modules/notifications/index.js";
+export type { Notifier, NotificationPayload } from "./modules/notifications/types.js";
