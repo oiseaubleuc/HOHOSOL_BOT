@@ -1,6 +1,6 @@
 import process from "node:process";
 import qrcode from "qrcode-terminal";
-import { Client, LocalAuth } from "whatsapp-web.js";
+import WhatsAppWeb from "whatsapp-web.js";
 import { loadRuntimeConfig } from "../../config/runtimeConfig.js";
 import { parseTelegramCommand } from "../telegram/parseCommand.js";
 import { dispatchTelegramCommand } from "../telegram/commandDispatcher.js";
@@ -25,6 +25,7 @@ function normalizeChat(chat: string): string {
  * Authorized chat should be a full WA jid, for example: 31612345678@c.us
  */
 export async function startWhatsAppCommandListener(cwd = process.cwd()): Promise<void> {
+  const { Client, LocalAuth } = WhatsAppWeb;
   const cfg = loadRuntimeConfig(cwd);
   const allowedChat = normalizeChat(requireEnv("WHATSAPP_ALLOWED_CHAT"));
   const sessionName = process.env.WHATSAPP_SESSION_NAME?.trim() || "devbot";
