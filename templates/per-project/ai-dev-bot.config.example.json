@@ -1,0 +1,6 @@
+{
+  "extraAllowedCommands": [
+    "php|artisan|route:list",
+    "npm|test"
+  ]
+}

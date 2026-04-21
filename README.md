@@ -24,6 +24,8 @@ npm run build
 | `npm run start -- …` | `node dist/cli.js …` |
 | `npm run bot:start` | Telegram long-poll listener |
 | `npm run bot:whatsapp` | WhatsApp listener (`whatsapp-web.js`) |
+| `npm run doctor` | Health check: Node, `.env`, workspace tasks, bot env |
+| `npm run init-templates -- --target <dir>` | Copy per-project template files into an app repo |
 | `npm run bot:run -- <taskId>` | Dry-run a task JSON from `WORKSPACE_PATH/tasks/<id>.json` |
 | `npm test` | Vitest |
 
@@ -35,7 +37,11 @@ devBOT run-id <taskId>
 devBOT execute-proposal --proposal <file> --approve-checksum <sha256>
 devBOT telegram
 devBOT whatsapp
+devBOT doctor
+devBOT init-templates [--target <dir>] [--force]
 ```
+
+For a **repeatable checklist** on every client project, see `docs/PROJECT_PLAYBOOK.md`.
 
 ## Workspace (`WORKSPACE_PATH`)
 
@@ -119,6 +125,7 @@ See **`.env.example`** for:
 - `src/logging/`, `src/reports/`, `src/memory/`, `src/ai/`
 - `src/modules/telegram/` — polling + command dispatch
 - `src/modules/whatsapp/` — WhatsApp listener (reuses command dispatch)
+- `src/commands/` — `doctor`, `init-templates`
 - `src/projects/` — `/create` scaffolds
 - `src/services/taskRunWorkflow.ts` — shared Laravel/Node inspect flow
 
@@ -127,4 +134,3 @@ See **`.env.example`** for:
 - **Web dashboard** is not included; the Telegram + CLI surface is designed so you can add HTTP later.
 - **Full code generation** is stubbed via reports + optional OpenAI coaching; plug your model or Cursor-style worker where `runTaskWorkflow` ends.
 - `npm run bot:run -- <taskId>` currently performs a **workspace dry-run** for that id; use `run` with `--approve-checksum` for execute, or Telegram `/run` + `/approve`.
-# HOHOSOL_BOT

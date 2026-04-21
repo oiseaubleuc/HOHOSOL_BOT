@@ -1,0 +1,12 @@
+{
+  "id": "APP-001",
+  "title": "Short title of the change",
+  "description": "What is wrong or missing, how to reproduce, and what “done” looks like.",
+  "projectRoot": "../projects/your-app-folder",
+  "priority": "medium",
+  "acceptanceCriteria": [
+    { "id": "AC-1", "description": "One concrete acceptance check (command, URL, or behaviour)." }
+  ],
+  "fileHints": [{ "path": "src/example.ts", "reason": "Likely touch point" }],
+  "labels": ["node"]
+}

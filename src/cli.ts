@@ -15,9 +15,12 @@ function usage(): string {
     `  ai-dev-bot execute-proposal --proposal <file> --approve-checksum <sha256>`,
     `  ai-dev-bot telegram                     — Telegram long-poll control`,
     `  ai-dev-bot whatsapp                     — WhatsApp command listener`,
+    `  ai-dev-bot doctor                       — health check (.env, workspace, bots)`,
+    `  ai-dev-bot init-templates [--target <dir>] [--force]`,
     ``,
     `Workspace: all bot outputs + default tasks live under WORKSPACE_PATH (default ~/devbot-workspace).`,
     `See .env.example for OPENAI_API_KEY, GITHUB_*, TELEGRAM_*, WHATSAPP_*, DRY_RUN, AUTO_APPROVE.`,
+    `See docs/PROJECT_PLAYBOOK.md for a repeatable setup on every client project.`,
     ``,
   ].join("\n");
 }
@@ -176,6 +179,16 @@ async function main(): Promise<void> {
     const { startWhatsAppCommandListener } = await import("./modules/whatsapp/startWhatsAppListener.js");
     await startWhatsAppCommandListener(process.cwd());
     return;
+  }
+  if (cmd === "doctor") {
+    const { runDoctor } = await import("./commands/doctor.js");
+    process.exit(await runDoctor(process.cwd()));
+  }
+  if (cmd === "init-templates") {
+    const { runInitTemplates } = await import("./commands/initTemplates.js");
+    const target = typeof args.target === "string" ? String(args.target) : ".";
+    const force = Boolean(args.force);
+    process.exit(await runInitTemplates({ repoRoot: process.cwd(), targetDir: target, force }));
   }
 
   console.error(`Unknown command: ${cmd ?? "(none)"}\n\n${usage()}`);
