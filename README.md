@@ -52,7 +52,7 @@ For a **repeatable checklist** on every client project, see `docs/PROJECT_PLAYBO
 
 ## Telegram
 
-Requires `TELEGRAM_BOT_TOKEN`. If `TELEGRAM_CHAT_ID` is empty, the listener runs in **bootstrap mode**: it replies with your chat id and keeps **commands disabled** until you set `TELEGRAM_CHAT_ID` and restart. After that, only that chat is accepted.
+Requires `TELEGRAM_BOT_TOKEN`. If `TELEGRAM_CHAT_ID` is empty or `0`, the listener runs in **bootstrap mode**: it replies with your chat id and keeps **commands disabled** until you set a real `TELEGRAM_CHAT_ID` and restart. After that, only that chat is accepted. Wrong chat id now gets a Telegram error message (not silent).
 
 ```bash
 npm run bot:start

@@ -7,6 +7,23 @@ export class TelegramClient {
     return `https://api.telegram.org/bot${this.token}/${method}`;
   }
 
+  async getMe(): Promise<{ id: number; username?: string; first_name?: string }> {
+    const res = await fetch(this.url("getMe"));
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`getMe failed: HTTP ${res.status} ${body.slice(0, 200)}`);
+    }
+    const json = (await res.json()) as {
+      ok: boolean;
+      result?: { id: number; username?: string; first_name?: string };
+      description?: string;
+    };
+    if (!json.ok || !json.result) {
+      throw new Error(json.description ?? "getMe: ok=false");
+    }
+    return json.result;
+  }
+
   async getUpdates(input: { offset: number; timeout: number }): Promise<TelegramUpdate[]> {
     const params = new URLSearchParams({
       offset: String(input.offset),

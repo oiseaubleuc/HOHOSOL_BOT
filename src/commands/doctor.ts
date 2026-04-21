@@ -70,12 +70,14 @@ export async function collectDoctorLines(repoRoot: string): Promise<DoctorLine[]
   }
 
   const chat = process.env.TELEGRAM_CHAT_ID?.trim() ?? "";
+  const chatUnset = chat.length === 0 || chat === "0";
   if (!token) {
     // already noted
-  } else if (!chat) {
+  } else if (chatUnset) {
     lines.push({
       level: "info",
-      message: "TELEGRAM_CHAT_ID empty — bootstrap mode: send any text to the bot, copy id from reply, restart",
+      message:
+        "TELEGRAM_CHAT_ID unset or 0 — bootstrap mode: send any text to the bot, copy id from reply, set TELEGRAM_CHAT_ID, restart",
     });
   } else {
     lines.push({ level: "ok", message: `TELEGRAM_CHAT_ID=${chat}` });
