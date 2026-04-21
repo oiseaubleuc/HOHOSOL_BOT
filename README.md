@@ -46,7 +46,7 @@ devBOT whatsapp
 
 ## Telegram
 
-Requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` (only that chat is accepted).
+Requires `TELEGRAM_BOT_TOKEN`. If `TELEGRAM_CHAT_ID` is empty, the listener runs in **bootstrap mode**: it replies with your chat id and keeps **commands disabled** until you set `TELEGRAM_CHAT_ID` and restart. After that, only that chat is accepted.
 
 ```bash
 npm run bot:start
