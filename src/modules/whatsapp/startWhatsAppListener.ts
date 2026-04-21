@@ -61,7 +61,18 @@ export async function startWhatsAppCommandListener(cwd = process.cwd()): Promise
       if (from !== allowedChat) return;
 
       const parsed = parseTelegramCommand(msg.body);
-      if (!parsed) return;
+      if (!parsed) {
+        try {
+          await wa.sendMessage(
+            msg.from,
+            "devBOT: no command detected. Messages must start with / (try /start or /tasks).",
+          );
+        } catch (err) {
+          const m = err instanceof Error ? err.message : String(err);
+          console.error(`[devBOT] WhatsApp hint send failed: ${m}`);
+        }
+        return;
+      }
 
       await dispatchTelegramCommand(parsed, {
         ws,

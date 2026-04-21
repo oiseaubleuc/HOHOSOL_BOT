@@ -30,7 +30,7 @@ Nothing outside `WORKSPACE_PATH` should be targeted by allowlisted commands.
    - Copy `templates/per-project/devbot-task.example.json`
    - Set `id`, `title`, `description`
    - Set `projectRoot` to `../projects/<app>` (relative to the task file)
-4. From the dispatcher repo: `npm run doctor` then `npm run bot:start` (Telegram) or `npm run bot:whatsapp`.
+4. From the dispatcher repo: `npm run doctor` then `npm run bot:start` (Telegram), `npm run bot:whatsapp`, or `npm run bot:bots` for both.
 5. In chat: `/tasks` → `/run <id>` → `/approve <id>` as prompted.
 
 ## 4. Safety defaults
@@ -38,6 +38,18 @@ Nothing outside `WORKSPACE_PATH` should be targeted by allowlisted commands.
 - Keep `DRY_RUN=true` until you trust the pipeline on that stack.
 - Never commit `.env` or WhatsApp session data (`.devbot/` under workspace).
 - Use `AUTO_APPROVE=false` on shared machines.
+
+This tool **does not** aim to remote-control your entire Mac (system UI, arbitrary paths, unrestricted shell). Keep real work inside `WORKSPACE_PATH` and extend allowlists deliberately. For OS-level shortcuts, use macOS Shortcuts or SSH alongside devBOT.
+
+## 4b. Telegram + WhatsApp together
+
+From the dispatcher repo, with **both** `TELEGRAM_BOT_TOKEN` and `WHATSAPP_ALLOWED_CHAT` set:
+
+```bash
+npm run bot:bots
+```
+
+You get the **same `/commands`** on Telegram and WhatsApp. WhatsApp first run still shows a **QR code** in the terminal once.
 
 ## 5. Quick template copy
 

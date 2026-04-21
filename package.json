@@ -11,6 +11,7 @@
     "dev": "node --import tsx/esm src/cli.ts",
     "bot:start": "node --import tsx/esm src/cli.ts telegram",
     "bot:whatsapp": "node --import tsx/esm src/cli.ts whatsapp",
+    "bot:bots": "node --import tsx/esm src/cli.ts bots",
     "doctor": "node --import tsx/esm src/cli.ts doctor",
     "init-templates": "node --import tsx/esm src/cli.ts init-templates",
     "bot:run": "node --import tsx/esm src/cli.ts run-id",

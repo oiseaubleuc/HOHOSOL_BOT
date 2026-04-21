@@ -24,6 +24,7 @@ npm run build
 | `npm run start -- …` | `node dist/cli.js …` |
 | `npm run bot:start` | Telegram long-poll listener |
 | `npm run bot:whatsapp` | WhatsApp listener (`whatsapp-web.js`) |
+| `npm run bot:bots` | Telegram + WhatsApp in one process (each channel skipped if env missing) |
 | `npm run doctor` | Health check: Node, `.env`, workspace tasks, bot env |
 | `npm run init-templates -- --target <dir>` | Copy per-project template files into an app repo |
 | `npm run bot:run -- <taskId>` | Dry-run a task JSON from `WORKSPACE_PATH/tasks/<id>.json` |
@@ -37,6 +38,7 @@ devBOT run-id <taskId>
 devBOT execute-proposal --proposal <file> --approve-checksum <sha256>
 devBOT telegram
 devBOT whatsapp
+devBOT bots
 devBOT doctor
 devBOT init-templates [--target <dir>] [--force]
 ```
@@ -97,6 +99,18 @@ On first start you get a QR in terminal. Scan it once with WhatsApp linked devic
 
 WhatsApp reuses the same command set as Telegram (`/start`, `/tasks`, `/run`, `/approve`, etc.).
 
+## Mac control scope (important)
+
+devBOT is **not** designed to be a “full remote admin” for your entire macOS install (system settings, arbitrary paths, `sudo`, etc.). That mode is unsafe if your chat or token leaks.
+
+What you *do* get:
+
+- **One workspace root** (`WORKSPACE_PATH`, often `~/devbot-workspace`) where tasks, clones, logs, and reports live.
+- **Allowlisted shell commands** only (Laravel/Node built-ins + optional `ai-dev-bot.config.json` prefixes).
+- **Telegram and/or WhatsApp** as control surfaces for the same `/commands`.
+
+To automate more **safely**, widen scope gradually: clone repos under `workspace/projects/`, add vetted `extraAllowedCommands`, keep `DRY_RUN=true` until stable, and use macOS **Shortcuts** / **SSH** for OS-level actions outside this sandbox.
+
 ## Security
 
 - **Path sandbox:** anything the executor runs must have `cwd` under `WORKSPACE_PATH`.
@@ -125,7 +139,7 @@ See **`.env.example`** for:
 - `src/logging/`, `src/reports/`, `src/memory/`, `src/ai/`
 - `src/modules/telegram/` — polling + command dispatch
 - `src/modules/whatsapp/` — WhatsApp listener (reuses command dispatch)
-- `src/commands/` — `doctor`, `init-templates`
+- `src/commands/` — `doctor`, `init-templates`, `startBots` (`bots`)
 - `src/projects/` — `/create` scaffolds
 - `src/services/taskRunWorkflow.ts` — shared Laravel/Node inspect flow
 

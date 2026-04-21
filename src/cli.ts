@@ -15,6 +15,7 @@ function usage(): string {
     `  ai-dev-bot execute-proposal --proposal <file> --approve-checksum <sha256>`,
     `  ai-dev-bot telegram                     — Telegram long-poll control`,
     `  ai-dev-bot whatsapp                     — WhatsApp command listener`,
+    `  ai-dev-bot bots                         — Telegram + WhatsApp together (skips missing env)`,
     `  ai-dev-bot doctor                       — health check (.env, workspace, bots)`,
     `  ai-dev-bot init-templates [--target <dir>] [--force]`,
     ``,
@@ -178,6 +179,11 @@ async function main(): Promise<void> {
   if (cmd === "whatsapp") {
     const { startWhatsAppCommandListener } = await import("./modules/whatsapp/startWhatsAppListener.js");
     await startWhatsAppCommandListener(process.cwd());
+    return;
+  }
+  if (cmd === "bots") {
+    const { startBothBotListeners } = await import("./commands/startBots.js");
+    await startBothBotListeners(process.cwd());
     return;
   }
   if (cmd === "doctor") {
