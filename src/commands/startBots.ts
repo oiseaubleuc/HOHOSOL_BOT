@@ -1,10 +1,12 @@
 import process from "node:process";
+import { loadRuntimeConfig } from "../config/runtimeConfig.js";
 
 /**
  * Runs Telegram and/or WhatsApp listeners concurrently (each blocks until exit).
  * Skips a channel when its env is missing instead of failing the whole process.
  */
 export async function startBothBotListeners(cwd = process.cwd()): Promise<void> {
+  loadRuntimeConfig(cwd);
   const tg = process.env.TELEGRAM_BOT_TOKEN?.trim();
   const wa = process.env.WHATSAPP_ALLOWED_CHAT?.trim();
 
