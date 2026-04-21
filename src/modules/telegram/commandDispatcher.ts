@@ -10,6 +10,8 @@ import { runAgentPipeline } from "../../execution/agentPipeline.js";
 import { createScaffoldedProject } from "../../projects/projectCreator.js";
 import type { WorkspaceManager } from "../../workspace/workspaceManager.js";
 import type { RuntimeConfig } from "../../config/runtimeConfig.js";
+import { formatActionResult, handleExtendedTelegramCommand } from "../developer-control/telegramBridge.js";
+import { approveDevAction, rejectDevAction, listPendingDevActions } from "../developer-control/actionQueue.js";
 
 export interface TelegramBotContext {
   ws: WorkspaceManager;
@@ -77,6 +79,12 @@ export async function dispatchTelegramCommand(cmd: ParsedTelegramCommand, ctx: T
       }
 
       case "approve": {
+        if (cmd.taskId.startsWith("DEV-")) {
+          const res = await approveDevAction(cmd.taskId);
+          await send(res ? formatActionResult(res) : `No pending DEV action ${cmd.taskId}`);
+          ctx.status.record(`/approve ${cmd.taskId}`);
+          return;
+        }
         const ok = bus.approveNext(cmd.taskId);
         await send(ok ? `Approved next step for ${cmd.taskId}.` : `No pending approval for ${cmd.taskId}.`);
         ctx.status.record(`/approve ${cmd.taskId}`);
@@ -84,6 +92,12 @@ export async function dispatchTelegramCommand(cmd: ParsedTelegramCommand, ctx: T
       }
 
       case "reject": {
+        if (cmd.taskId.startsWith("DEV-")) {
+          const ok = rejectDevAction(cmd.taskId);
+          await send(ok ? `Rejected DEV action ${cmd.taskId}.` : `No pending DEV action ${cmd.taskId}.`);
+          ctx.status.record(`/reject ${cmd.taskId}`);
+          return;
+        }
         const n = bus.rejectTask(cmd.taskId);
         ctx.running.kill(cmd.taskId);
         await send(`Rejected ${n} pending step(s) for ${cmd.taskId}.`);
@@ -96,10 +110,12 @@ export async function dispatchTelegramCommand(cmd: ParsedTelegramCommand, ctx: T
           .list()
           .filter((t) => !["completed", "failed", "killed"].includes(t.phase));
         const s = ctx.status.get();
+        const pend = listPendingDevActions();
         await send(
           [
             `Last action: ${s.summary} @ ${s.updatedAt}`,
             running.length ? `Active: ${running.map((r) => `${r.taskId}:${r.phase}`).join(", ")}` : "No active pipelines.",
+            pend.length ? `Pending DEV approvals: ${pend.map((p) => p.id).join(", ")}` : "No pending DEV approvals.",
           ].join("\n"),
         );
         return;
@@ -147,6 +163,9 @@ export async function dispatchTelegramCommand(cmd: ParsedTelegramCommand, ctx: T
 
       case "health": {
         const mem = process.memoryUsage();
+        const llm = ctx.cfg.openaiApiKey
+          ? `OpenAI: configured (${ctx.cfg.openaiModel ?? "default model"})`
+          : "OpenAI: not configured";
         await send(
           [
             `devBOT health`,
@@ -155,8 +174,24 @@ export async function dispatchTelegramCommand(cmd: ParsedTelegramCommand, ctx: T
             `- rss: ${Math.round(mem.rss / 1024 / 1024)} MB`,
             `- uptime: ${Math.round(process.uptime())}s`,
             `- hostname: ${os.hostname()}`,
+            `- ${llm}`,
           ].join("\n"),
         );
+        return;
+      }
+
+      case "open":
+      case "browser":
+      case "projects":
+      case "open_project":
+      case "pwd_ws":
+      case "tree":
+      case "files":
+      case "dev":
+      case "ports":
+      case "processes":
+      case "kill_port": {
+        await handleExtendedTelegramCommand(cmd, ctx);
         return;
       }
 

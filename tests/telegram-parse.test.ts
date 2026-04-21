@@ -29,4 +29,20 @@ describe("parseTelegramCommand", () => {
   it("parses /reject", () => {
     expect(parseTelegramCommand("/reject ACME-1842")).toEqual({ kind: "reject", taskId: "ACME-1842" });
   });
+
+  it("parses /open cursor with optional project", () => {
+    expect(parseTelegramCommand("/open cursor sample-node")).toEqual({
+      kind: "open",
+      target: "cursor",
+      project: "sample-node",
+    });
+  });
+
+  it("parses /browser open localhost", () => {
+    expect(parseTelegramCommand("/browser open localhost 3000")).toEqual({
+      kind: "browser",
+      mode: "localhost",
+      port: 3000,
+    });
+  });
 });

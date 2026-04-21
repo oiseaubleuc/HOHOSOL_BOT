@@ -9,6 +9,9 @@ export interface RuntimeConfig {
   dryRun: boolean;
   autoApprove: boolean;
   openaiApiKey?: string;
+  openaiBaseUrl?: string;
+  openaiModel?: string;
+  openRouterModel?: string;
   githubToken?: string;
   /** `owner/repo` */
   githubRepo?: string;
@@ -39,7 +42,7 @@ export function loadRuntimeConfig(cwd = process.cwd()): RuntimeConfig {
     return path.isAbsolute(expanded) ? expanded : path.resolve(cwd, expanded);
   })();
 
-  const dryRun = (process.env.DRY_RUN ?? "false").toLowerCase() === "true";
+  const dryRun = (process.env.DRY_RUN ?? "true").toLowerCase() === "true";
   const autoApprove = (process.env.AUTO_APPROVE ?? "false").toLowerCase() === "true";
 
   return {
@@ -47,6 +50,9 @@ export function loadRuntimeConfig(cwd = process.cwd()): RuntimeConfig {
     dryRun,
     autoApprove,
     openaiApiKey: process.env.OPENAI_API_KEY?.trim() || undefined,
+    openaiBaseUrl: process.env.OPENAI_BASE_URL?.trim() || undefined,
+    openaiModel: process.env.OPENAI_MODEL?.trim() || undefined,
+    openRouterModel: process.env.OPENROUTER_MODEL?.trim() || undefined,
     githubToken: process.env.GITHUB_TOKEN?.trim() || undefined,
     githubRepo: process.env.GITHUB_REPO?.trim() || undefined,
     telegramBotToken: process.env.TELEGRAM_BOT_TOKEN?.trim() || undefined,

@@ -13,6 +13,17 @@ export type ParsedTelegramCommand =
   | { kind: "kill"; taskId: string }
   | { kind: "workspace" }
   | { kind: "health" }
+  | { kind: "open"; target: "cursor" | "vscode" | "terminal" | "finder" | "brave" | "safari"; project?: string }
+  | { kind: "browser"; mode: "youtube" | "github" | "localhost" | "url"; port?: number; url?: string }
+  | { kind: "projects" }
+  | { kind: "open_project"; name: string }
+  | { kind: "pwd_ws" }
+  | { kind: "tree"; project: string }
+  | { kind: "files"; project: string }
+  | { kind: "dev"; tokens: string[] }
+  | { kind: "ports" }
+  | { kind: "processes" }
+  | { kind: "kill_port"; port: number }
   | { kind: "unknown"; raw: string };
 
 export interface TelegramMessage {

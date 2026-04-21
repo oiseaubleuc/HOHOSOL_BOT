@@ -2,12 +2,33 @@
 
 Production-oriented **remote AI developer assistant** for your Mac (iMac worker + MacBook/Telegram control). All bot-owned files, tasks, clones, **logs**, and **reports** live under a single **workspace directory** (default `~/devbot-workspace`). Shell execution is **allowlisted** and **cwd-checked** so commands cannot run outside that workspace.
 
+## Control platform architecture
+
+Three intended layers:
+
+1. **iMac (worker)** — runs devBOT, holds `WORKSPACE_PATH`, executes **policy-approved** actions, writes logs/reports.
+2. **MacBook (full control)** — Screen Sharing + SSH + local IDEs; use for deep edits and reviews (see `docs/REMOTE_ACCESS.md`).
+3. **iPhone / Telegram (quick control)** — structured slash commands, approvals, monitoring; **no raw shell strings** from chat.
+
+Core subsystems:
+
+| Path | Responsibility |
+| --- | --- |
+| `src/modules/developer-control/` | Action model, policy gate, DEV approval queue, Telegram bridge, adapters (IDE/browser/git/dev). |
+| `src/modules/system/` | Workspace path guard, URL sanitization for Brave, `spawn(..., { shell:false })` runner with cwd checks. |
+| `src/modules/mac-assistant/` | Thin macOS launch helpers built on the same validated paths. |
+| `src/modules/telegram/` | Parsing + routing + legacy task pipeline integration. |
+| `src/execution/` + `src/approvals/` | Agent pipeline + FIFO gates for `/run` task workflows. |
+
+**Non-goals (by design):** lock-screen bypass, unrestricted remote shell, execution outside `WORKSPACE_PATH`.
+
 ## Quick start (macOS)
 
 ```bash
 cd /path/to/dispatcher
 cp .env.example .env
 # Edit .env — set at least WORKSPACE_PATH (optional), TELEGRAM_* or WHATSAPP_* if you use chat control.
+# If DRY_RUN is unset, it defaults to true (safe). Set DRY_RUN=false on trusted workers only.
 
 npm install
 npm run typecheck
@@ -45,6 +66,8 @@ devBOT init-templates [--target <dir>] [--force]
 
 For a **repeatable checklist** on every client project, see `docs/PROJECT_PLAYBOOK.md`.
 
+For **Screen Sharing / SSH / VPN** guidance, see `docs/REMOTE_ACCESS.md`.
+
 ## Workspace (`WORKSPACE_PATH`)
 
 - Default: **`~/devbot-workspace`** (override with `WORKSPACE_PATH` in `.env`).
@@ -67,8 +90,8 @@ npm run bot:start
 | `/start` | `devBOT ready 🚀` |
 | `/tasks` | Lists tasks in `workspace/tasks` |
 | `/run <taskId>` | Starts **agent pipeline** (approvals + logs + agent report) |
-| `/approve <taskId>` | Approves the **next** queued gate for that task (or `create:<name>` for `/create`) |
-| `/reject <taskId>` | Rejects pending approvals + kill runner |
+| `/approve <taskId>` | Approves the **next** queued gate for that task (or `create:<name>` for `/create`, or `DEV-…` developer action) |
+| `/reject <taskId>` | Rejects pending approvals + kill runner (or `DEV-…` developer action) |
 | `/status` | Last action + active pipeline phases |
 | `/logs <taskId>` | Tail of `logs/<taskId>.log` |
 | `/report <taskId>` | Latest `reports/<taskId>-agent.md` |
@@ -76,6 +99,16 @@ npm run bot:start
 | `/workspace` | Lists `projects/` |
 | `/health` | Hostname, memory, uptime, workspace path |
 | `/create <name> <type>` | Scaffold under `projects/` (`node-api`, `nextjs`, `laravel`, `saas-template`) — requires `/approve create:<name>` first |
+| `/open cursor|vscode|terminal|finder|brave|safari` | macOS `open` for IDE/Finder/browser (optional project folder name) |
+| `/open localhost <port>` / `/open youtube` / `/open github` | Brave opens sanitized localhost / presets |
+| `/browser open …` | `youtube`, `github`, `localhost <port>`, `url <https://…>` (host allowlist + localhost) |
+| `/projects` | Lists `projects/` |
+| `/open-project <name>` | Sets active project + reveals Finder |
+| `/pwd` | Prints workspace root |
+| `/tree <project>` / `/files <project>` | Shallow tree / top-level listing (workspace only) |
+| `/dev …` | Structured developer ops (`inspect`, `install`, `build`, `test`, `lint`, `git …`, `file …`, `artisan …`) |
+| `/ports` / `/processes` | Snapshot listeners / processes (read-only argv) |
+| `/kill-port <port>` | **Requires approval** (`/approve DEV-…`) — SIGTERM listeners on that TCP port |
 
 ### Agent pipeline (Telegram `/run`)
 
@@ -126,7 +159,7 @@ Env: `GITHUB_TOKEN`, `GITHUB_REPO` (`owner/repo`). Helpers live in `src/integrat
 See **`.env.example`** for:
 
 - `WORKSPACE_PATH`, `DRY_RUN`, `AUTO_APPROVE`
-- `OPENAI_API_KEY`
+- `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENROUTER_MODEL` (optional / future)
 - `TELEGRAM_*`, `WHATSAPP_*`, `GITHUB_*`
 
 ## Layout (src)
@@ -139,6 +172,9 @@ See **`.env.example`** for:
 - `src/logging/`, `src/reports/`, `src/memory/`, `src/ai/`
 - `src/modules/telegram/` — polling + command dispatch
 - `src/modules/whatsapp/` — WhatsApp listener (reuses command dispatch)
+- `src/modules/developer-control/` — policy + adapters + Telegram bridge
+- `src/modules/system/` — path guard + safe runner + URL sanitization
+- `src/modules/mac-assistant/` — macOS launch helpers
 - `src/commands/` — `doctor`, `init-templates`, `startBots` (`bots`)
 - `src/projects/` — `/create` scaffolds
 - `src/services/taskRunWorkflow.ts` — shared Laravel/Node inspect flow

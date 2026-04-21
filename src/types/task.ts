@@ -32,6 +32,8 @@ export interface RawTaskJson {
    * Absolute or relative path to the client repo root.
    */
   projectRoot: string;
+  /** Optional alias for `projectRoot` (same semantics). */
+  projectPath?: string;
   priority?: TaskPriority;
   acceptanceCriteria?: TaskAcceptanceCriterion[];
   fileHints?: TaskFileHint[];
