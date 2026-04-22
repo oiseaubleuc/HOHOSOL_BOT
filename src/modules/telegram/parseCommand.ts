@@ -130,6 +130,13 @@ export function parseTelegramCommand(text: string | undefined): ParsedTelegramCo
       if (!p) return { kind: "unknown", raw: trimmed };
       return { kind: "kill_port", port: p };
     }
+    case "/system": {
+      const sub = arg(1)?.toLowerCase();
+      if (sub !== "create-folder") return { kind: "unknown", raw: trimmed };
+      const folderRaw = tokens.slice(2).join(" ").trim();
+      if (!folderRaw) return { kind: "unknown", raw: trimmed };
+      return { kind: "system", action: "create-folder", folderName: folderRaw };
+    }
     default:
       return { kind: "unknown", raw: trimmed };
   }

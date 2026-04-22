@@ -24,6 +24,7 @@ export type ParsedTelegramCommand =
   | { kind: "ports" }
   | { kind: "processes" }
   | { kind: "kill_port"; port: number }
+  | { kind: "system"; action: "create-folder"; folderName: string }
   | { kind: "unknown"; raw: string };
 
 export interface TelegramMessage {

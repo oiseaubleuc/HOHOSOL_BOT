@@ -109,6 +109,7 @@ npm run bot:start
 | `/dev …` | Structured developer ops (`inspect`, `install`, `build`, `test`, `lint`, `git …`, `file …`, `artisan …`) |
 | `/ports` / `/processes` | Snapshot listeners / processes (read-only argv) |
 | `/kill-port <port>` | **Requires approval** (`/approve DEV-…`) — SIGTERM listeners on that TCP port |
+| `/system create-folder <name>` | Creates `~/Desktop/<name>` (sanitized; no `..`); logs under workspace `logs/system-create-folder.log`. Exists → `Folder already exists ⚠️`; created → `Folder <name> created on Desktop ✅` |
 
 ### Agent pipeline (Telegram `/run`)
 

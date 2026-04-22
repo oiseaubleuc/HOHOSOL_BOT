@@ -45,4 +45,12 @@ describe("parseTelegramCommand", () => {
       port: 3000,
     });
   });
+
+  it("parses /system create-folder with name", () => {
+    expect(parseTelegramCommand("/system create-folder my-notes")).toEqual({
+      kind: "system",
+      action: "create-folder",
+      folderName: "my-notes",
+    });
+  });
 });

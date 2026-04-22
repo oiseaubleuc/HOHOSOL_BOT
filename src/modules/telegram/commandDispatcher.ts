@@ -11,6 +11,7 @@ import { createScaffoldedProject } from "../../projects/projectCreator.js";
 import type { WorkspaceManager } from "../../workspace/workspaceManager.js";
 import type { RuntimeConfig } from "../../config/runtimeConfig.js";
 import { formatActionResult, handleExtendedTelegramCommand } from "../developer-control/telegramBridge.js";
+import { createDesktopFolder } from "../system/createDesktopFolder.js";
 import { approveDevAction, rejectDevAction, listPendingDevActions } from "../developer-control/actionQueue.js";
 
 export interface TelegramBotContext {
@@ -192,6 +193,15 @@ export async function dispatchTelegramCommand(cmd: ParsedTelegramCommand, ctx: T
       case "processes":
       case "kill_port": {
         await handleExtendedTelegramCommand(cmd, ctx);
+        return;
+      }
+
+      case "system": {
+        if (cmd.action === "create-folder") {
+          const res = await createDesktopFolder(ctx.ws, cmd.folderName);
+          await send(res.message);
+          ctx.status.record(`/system create-folder ${cmd.folderName}`);
+        }
         return;
       }
 
