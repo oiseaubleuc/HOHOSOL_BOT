@@ -1,34 +1,34 @@
 import type { ParsedTelegramCommand } from "../telegram/types.js";
 import type { WorkspaceManager } from "../../workspace/workspaceManager.js";
 import type { RuntimeConfig } from "../../config/runtimeConfig.js";
-import { sanitizeBrowserUrl, presetUrl, localhostUrl } from "../system/sanitizeUrl.js";
-import { openAppOnly, openBrowserUrl, openFinder, openIdeOrApp } from "./adapters/macOpenAdapter.js";
+import {
+  sanitizeBrowserUrl,
+  presetUrl,
+  localhostUrl,
+  youtubeSearchResultsUrl,
+  githubSearchResultsUrl,
+} from "../system/sanitizeUrl.js";
+import { openAppOnly, openBrowserUrl, openFinder, openIdeOrApp, openMacBundleApp } from "./adapters/macOpenAdapter.js";
+import { resolveMacBundleKey } from "./adapters/macBundles.js";
 import { listProjectFiles, readProjectFile, treeProjectShallow } from "./adapters/filesystemAdapter.js";
-import { gitCommit, gitCreateBranch, gitDiff, gitStatus } from "./adapters/gitAdapter.js";
+import { gitCommit, gitCreateBranch, gitDiff, gitPush, gitStatus } from "./adapters/gitAdapter.js";
 import { runArtisanSafe, runBuild, runInstall, runLint, runTests } from "./adapters/devCommandsAdapter.js";
 import { killPort, listListeningPorts, listProcesses } from "./adapters/portsAdapter.js";
 import { inspectProject } from "./inspectProject.js";
 import type { ActionResult, ActionType } from "./types.js";
 import { gateAndRun, dryRunBlock } from "./gate.js";
 import { setActiveProjectName, getActiveProjectName } from "./activeProjectStore.js";
+import { formatActionResultForTelegram, truncateTelegram } from "../telegram/telegramUx.js";
+import type { TelegramSendOptions } from "../telegram/telegramClient.js";
+
 export interface TelegramBridgeContext {
   ws: WorkspaceManager;
   cfg: RuntimeConfig;
-  client: { sendMessage(chatId: number | string, text: string): Promise<void> };
+  client: { sendMessage(chatId: number | string, text: string, options?: TelegramSendOptions): Promise<void> };
   chatId: number;
 }
 
-export function formatActionResult(r: ActionResult): string {
-  const lines = [
-    `${r.success ? "OK" : "ERR"} · ${r.actionType}`,
-    r.summary,
-    r.details ? `Details: ${r.details}` : "",
-    r.requiresApproval && r.details ? `${r.details}` : "",
-    r.output ? `\n${r.output}` : "",
-    r.error ? `\nError: ${r.error}` : "",
-  ].filter(Boolean);
-  return lines.join("\n").slice(0, 4000);
-}
+export const formatActionResult = formatActionResultForTelegram;
 
 const fmt = formatActionResult;
 
@@ -49,6 +49,11 @@ export async function handleExtendedTelegramCommand(cmd: ParsedTelegramCommand, 
 
   switch (cmd.kind) {
     case "open": {
+      const mac = resolveMacBundleKey(cmd.target);
+      if (mac) {
+        await send(fmt(await openMacBundleApp(ws, mac)));
+        return true;
+      }
       if (cmd.target === "finder") {
         await send(fmt(await openFinder(ws, cmd.project)));
         return true;
@@ -61,17 +66,25 @@ export async function handleExtendedTelegramCommand(cmd: ParsedTelegramCommand, 
         await send(fmt(await openAppOnly(ws, "safari")));
         return true;
       }
-      await send(fmt(await openIdeOrApp(ws, cmd.target, cmd.project)));
+      await send(
+        fmt(await openIdeOrApp(ws, cmd.target as "cursor" | "vscode" | "terminal", cmd.project)),
+      );
       return true;
     }
     case "browser": {
       if (cmd.mode === "youtube") {
-        const url = presetUrl("youtube");
+        const built = cmd.query?.trim()
+          ? youtubeSearchResultsUrl(cmd.query.trim())
+          : presetUrl("youtube");
+        const url = sanitizeBrowserUrl(built);
         await send(fmt(await openBrowserUrl(ws, "brave", url)));
         return true;
       }
       if (cmd.mode === "github") {
-        const url = presetUrl("github");
+        const built = cmd.query?.trim()
+          ? githubSearchResultsUrl(cmd.query.trim())
+          : presetUrl("github");
+        const url = sanitizeBrowserUrl(built);
         await send(fmt(await openBrowserUrl(ws, "brave", url)));
         return true;
       }
@@ -89,16 +102,20 @@ export async function handleExtendedTelegramCommand(cmd: ParsedTelegramCommand, 
     }
     case "projects": {
       const names = await import("node:fs/promises").then((fs) => fs.readdir(ws.projectsDir()).catch(() => []));
-      await send(["Projects:", ...names.map((n) => `• ${n}`)].join("\n").slice(0, 3500));
+      const body =
+        names.length === 0
+          ? "📂 No projects yet — use `/create` or clone under `projects/`."
+          : ["📂 Projects", ...names.map((n) => `• ${n}`)].join("\n");
+      await send(truncateTelegram(body));
       return true;
     }
     case "open_project": {
       setActiveProjectName(cmd.name);
-      await send(`Active project: ${cmd.name}\n${fmt(await openFinder(ws, cmd.name))}`);
+      await send(truncateTelegram(`📌 Active: ${cmd.name}\n${fmt(await openFinder(ws, cmd.name))}`));
       return true;
     }
     case "pwd_ws": {
-      await send(`WORKSPACE_PATH=\n${ws.root}`);
+      await send(truncateTelegram(`📁 Workspace\n${ws.root}`));
       return true;
     }
     case "tree": {
@@ -132,15 +149,41 @@ export async function handleExtendedTelegramCommand(cmd: ParsedTelegramCommand, 
   }
 }
 
+function devCommandHelpFr(): string {
+  return [
+    "🛠 `/dev` — lance des **outils en ligne de commande** sur un **projet** (dossier sous ton répertoire projets du bot).",
+    "",
+    "Exemples :",
+    "• `/dev inspect <projet>` — détecte la stack (Node, Laravel…)",
+    "• `/dev build|test|lint|install <projet>`",
+    "• `/dev git status|diff <projet>` · `/dev git commit <projet> message` · `/dev git push <projet>`",
+    "• `/dev file read <projet> chemin/relatif`",
+    "• `/dev artisan <projet> …` (Laravel)",
+    "• `/dev open cursor <projet>` — ouvre **Cursor** directement sur ce dossier",
+    "",
+    "🎯 Bouton « Cursor » (Telegram)",
+    "Ouvre l’app Cursor (souvent sur la racine workspace). Pour ouvrir **un projet précis** :",
+    "`/open cursor <nom-du-dossier>` ou `/dev open cursor <nom-du-dossier>`",
+    "",
+    "💬 Chat IA **dans** Cursor",
+    "Composer / Chat de Cursor ne sont **pas** branchés sur Telegram : une fois Cursor ouvert sur le Mac, utilise **Cmd+L** (ou le panneau Chat) **dans Cursor** pour lancer le projet, le débugger, etc.",
+    "Sur Telegram : `/chat` = conseils ; phrase sans `/` ou boutons = **actions** sur le Mac.",
+  ].join("\n");
+}
+
 async function handleDevTokens(tokens: string[], ctx: TelegramBridgeContext): Promise<string> {
   const { ws, cfg } = ctx;
+  if (tokens.length === 0) {
+    return truncateTelegram(devCommandHelpFr());
+  }
   const [a0, a1, a2, a3, ...rest] = tokens;
   const head = a0?.toLowerCase();
-  if (!head) return "Usage: /dev …";
+  if (!head) return truncateTelegram(devCommandHelpFr());
 
   if (head === "projects") {
     const names = await import("node:fs/promises").then((fs) => fs.readdir(ws.projectsDir()).catch(() => []));
-    return ["Projects:", ...names.map((n) => `• ${n}`)].join("\n").slice(0, 3500);
+    if (names.length === 0) return "📂 No projects in workspace yet.";
+    return truncateTelegram(["📂 Projects", ...names.map((n) => `• ${n}`)].join("\n"));
   }
 
   if (head === "inspect" && a1) {
@@ -166,9 +209,8 @@ async function handleDevTokens(tokens: string[], ctx: TelegramBridgeContext): Pr
       await gateAndRun(cfg, "RUN_DEV_SERVER", `dev server ${a1}`, async () => ({
         success: true,
         actionType: "RUN_DEV_SERVER",
-        summary: "Dev server policy",
-        details:
-          "Long-running servers are not auto-spawned here. Use /open terminal then run your package manager dev script, or extend with a supervised runner.",
+        summary: "Dev servers are not auto-started (safety).",
+        details: "Use `/open terminal` on the iMac, cd into the project, then run your usual dev script (npm/pnpm/yarn).",
       })),
     );
   }
@@ -194,6 +236,9 @@ async function handleDevTokens(tokens: string[], ctx: TelegramBridgeContext): Pr
     if (!msg) return "Usage: /dev git commit <project> <message>";
     return await gated(ctx, "GIT_COMMIT", `commit in ${a2}`, () => gitCommit(ws, a2, msg));
   }
+  if (head === "git" && a1 === "push" && a2) {
+    return await gated(ctx, "GIT_PUSH", `push in ${a2}`, () => gitPush(ws, a2));
+  }
 
   if (head === "file" && a1 === "list" && a2) {
     return fmt(await listProjectFiles(ws, a2));
@@ -217,20 +262,15 @@ async function handleDevTokens(tokens: string[], ctx: TelegramBridgeContext): Pr
 
   const active = getActiveProjectName();
   if (head === "pwd" && active) {
-    return `Active project: ${active}`;
+    return `📌 Active project: ${active}`;
   }
 
   return [
-    "Unknown /dev command.",
-    "Examples:",
-    "/dev inspect <project>",
-    "/dev install <project>",
-    "/dev build <project>",
-    "/dev test <project>",
-    "/dev git status <project>",
-    "/dev git branch <project> <branch>",
-    "/dev git commit <project> <message>",
-    "/dev file read <project> <relative-path>",
-    "/dev artisan <project> route:list",
+    "❓ Unknown `/dev` — try:",
+    "`/dev inspect <project>`",
+    "`/dev build|test|lint|install <project>`",
+    "`/dev git status|diff|branch|commit|push …`",
+    "`/dev file read <project> <path>`",
+    "`/dev artisan <project> route:list`",
   ].join("\n");
 }

@@ -1,11 +1,25 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+export interface WorkspaceManagerOptions {
+  /** Resolved absolute path; projects & clones go here instead of `root/projects`. */
+  projectsDir?: string;
+}
+
 /**
- * All bot data and project work must stay under {@link root}.
+ * Tasks, logs, reports stay under {@link root}. Projects default to `root/projects` or an optional override.
  */
 export class WorkspaceManager {
-  constructor(public readonly root: string) {}
+  private readonly _projectsDir: string;
+
+  constructor(
+    public readonly root: string,
+    opts?: WorkspaceManagerOptions,
+  ) {
+    const override = opts?.projectsDir?.trim();
+    this._projectsDir =
+      override && override.length > 0 ? path.resolve(override) : path.join(this.root, "projects");
+  }
 
   tasksDir(): string {
     return path.join(this.root, "tasks");
@@ -24,7 +38,7 @@ export class WorkspaceManager {
   }
 
   projectsDir(): string {
-    return path.join(this.root, "projects");
+    return this._projectsDir;
   }
 
   stateDir(): string {
@@ -59,15 +73,21 @@ export class WorkspaceManager {
   }
 
   /**
-   * Throws if `absoluteTarget` is not inside {@link root} (after normalization).
+   * Throws if `absoluteTarget` is not under workspace {@link root} nor under {@link projectsDir}.
    */
   assertPathInWorkspace(absoluteTarget: string): void {
-    const root = path.resolve(this.root);
     const target = path.resolve(absoluteTarget);
+    if (this.pathIsUnder(this.root, target)) return;
+    if (this.pathIsUnder(this.projectsDir(), target)) return;
+    throw new Error(
+      `Path outside workspace/projects: ${target}\nWorkspace: ${path.resolve(this.root)}\nProjects: ${path.resolve(this.projectsDir())}`,
+    );
+  }
+
+  private pathIsUnder(rootDir: string, target: string): boolean {
+    const root = path.resolve(rootDir);
     const rel = path.relative(root, target);
-    if (rel.startsWith("..") || path.isAbsolute(rel)) {
-      throw new Error(`Path outside workspace: ${target}\nWorkspace root: ${root}`);
-    }
+    return !rel.startsWith("..") && !path.isAbsolute(rel);
   }
 
   assertOptionalPathInWorkspace(absoluteTarget: string | undefined): void {

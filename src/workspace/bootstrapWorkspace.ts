@@ -2,6 +2,13 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { WorkspaceManager } from "./workspaceManager.js";
 
+/** When `false`, empty `tasks/` stays empty (no copy from `samples/tasks`). Default: seed samples. */
+export function isSampleTaskSeedingEnabled(): boolean {
+  const v = process.env.DEVBOT_SEED_SAMPLE_TASKS?.trim().toLowerCase();
+  if (!v) return true;
+  return !["0", "false", "no", "off"].includes(v);
+}
+
 async function pathExists(p: string): Promise<boolean> {
   try {
     await fs.access(p);
@@ -16,6 +23,7 @@ async function pathExists(p: string): Promise<boolean> {
  */
 export async function bootstrapWorkspaceTasksIfEmpty(ws: WorkspaceManager, repoRoot: string): Promise<void> {
   await ws.ensureLayout();
+  if (!isSampleTaskSeedingEnabled()) return;
   const existing = await fs.readdir(ws.tasksDir()).catch(() => []);
   const jsonCount = existing.filter((f) => f.endsWith(".json")).length;
   if (jsonCount > 0) return;

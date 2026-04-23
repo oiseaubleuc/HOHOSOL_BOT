@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import type { WorkspaceManager } from "../../../workspace/workspaceManager.js";
 import { resolveProjectInWorkspace } from "../../system/pathGuard.js";
 import type { ActionResult } from "../types.js";
+import { MAC_APP_BUNDLES, type MacBundleOpenKey } from "./macBundles.js";
 
 function runOpen(argv: string[], cwd: string): Promise<number | null> {
   return new Promise((resolve) => {
@@ -71,5 +72,21 @@ export async function openAppOnly(ws: WorkspaceManager, key: "brave" | "safari")
     actionType: key === "brave" ? "OPEN_BRAVE" : "OPEN_SAFARI_URL",
     summary: `${app} launched`,
     details: `exit=${code}`,
+  };
+}
+
+/**
+ * Opens a built-in macOS app by bundle path (works regardless of UI language).
+ */
+export async function openMacBundleApp(ws: WorkspaceManager, key: MacBundleOpenKey): Promise<ActionResult> {
+  const bundle = MAC_APP_BUNDLES[key];
+  const argv = ["open", bundle];
+  const code = await runOpen(argv, ws.root);
+  return {
+    success: code === 0,
+    actionType: "OPEN_MAC_APP",
+    summary: `Opened ${key} (${bundle.split("/").pop() ?? bundle})`,
+    details: `exit=${code}`,
+    error: code === 0 ? undefined : `open exited ${code} (app missing on this Mac?)`,
   };
 }

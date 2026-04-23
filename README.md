@@ -46,6 +46,7 @@ npm run build
 | `npm run bot:start` | Telegram long-poll listener |
 | `npm run bot:whatsapp` | WhatsApp listener (`whatsapp-web.js`) |
 | `npm run bot:bots` | Telegram + WhatsApp in one process (each channel skipped if env missing) |
+| `npm run bot:resident` | Resident mode + heartbeat log (launch-at-login friendly) |
 | `npm run doctor` | Health check: Node, `.env`, workspace tasks, bot env |
 | `npm run init-templates -- --target <dir>` | Copy per-project template files into an app repo |
 | `npm run bot:run -- <taskId>` | Dry-run a task JSON from `WORKSPACE_PATH/tasks/<id>.json` |
@@ -60,6 +61,7 @@ devBOT execute-proposal --proposal <file> --approve-checksum <sha256>
 devBOT telegram
 devBOT whatsapp
 devBOT bots
+devBOT resident
 devBOT doctor
 devBOT init-templates [--target <dir>] [--force]
 ```
@@ -88,6 +90,7 @@ npm run bot:start
 | Command | Behaviour |
 | --- | --- |
 | `/start` | `devBOT ready 🚀` |
+| `/help` | Short command cheat-sheet |
 | `/tasks` | Lists tasks in `workspace/tasks` |
 | `/run <taskId>` | Starts **agent pipeline** (approvals + logs + agent report) |
 | `/approve <taskId>` | Approves the **next** queued gate for that task (or `create:<name>` for `/create`, or `DEV-…` developer action) |
@@ -100,6 +103,7 @@ npm run bot:start
 | `/health` | Hostname, memory, uptime, workspace path |
 | `/create <name> <type>` | Scaffold under `projects/` (`node-api`, `nextjs`, `laravel`, `saas-template`) — requires `/approve create:<name>` first |
 | `/open cursor|vscode|terminal|finder|brave|safari` | macOS `open` for IDE/Finder/browser (optional project folder name) |
+| `/open settings|activity|mail|music|…` | Built-in Apple apps by **bundle path** (locale-safe); list in `src/modules/developer-control/adapters/macBundles.ts` |
 | `/open localhost <port>` / `/open youtube` / `/open github` | Brave opens sanitized localhost / presets |
 | `/browser open …` | `youtube`, `github`, `localhost <port>`, `url <https://…>` (host allowlist + localhost) |
 | `/projects` | Lists `projects/` |
@@ -107,9 +111,12 @@ npm run bot:start
 | `/pwd` | Prints workspace root |
 | `/tree <project>` / `/files <project>` | Shallow tree / top-level listing (workspace only) |
 | `/dev …` | Structured developer ops (`inspect`, `install`, `build`, `test`, `lint`, `git …`, `file …`, `artisan …`) |
+| `/ask <instruction>` | Natural language request mapped to one safe structured command (clarifies if ambiguous) |
 | `/ports` / `/processes` | Snapshot listeners / processes (read-only argv) |
 | `/kill-port <port>` | **Requires approval** (`/approve DEV-…`) — SIGTERM listeners on that TCP port |
 | `/system create-folder <name>` | Creates `~/Desktop/<name>` (sanitized; no `..`); logs under workspace `logs/system-create-folder.log`. Exists → `Folder already exists ⚠️`; created → `Folder <name> created on Desktop ✅` |
+| `/system create-folder-in-desktop <name>` | Creates under `~/Desktop/<name>` (approval-aware) |
+| `/system create-folder-in-future-projects <name>` | Creates under allowlisted `~/Desktop/future-projects` or `~/Desktop/Future Project` |
 
 ### Agent pipeline (Telegram `/run`)
 
@@ -135,15 +142,19 @@ WhatsApp reuses the same command set as Telegram (`/start`, `/tasks`, `/run`, `/
 
 ## Mac control scope (important)
 
-devBOT is **not** designed to be a “full remote admin” for your entire macOS install (system settings, arbitrary paths, `sudo`, etc.). That mode is unsafe if your chat or token leaks.
+devBOT is **not** a unconstrained “remote admin” of macOS (no arbitrary shell, no `sudo`, no writing outside policy). That keeps your Telegram token from becoming full machine access if it leaks.
 
-What you *do* get:
+What you *do* get for day-to-day **iMac remote dev**:
 
-- **One workspace root** (`WORKSPACE_PATH`, often `~/devbot-workspace`) where tasks, clones, logs, and reports live.
-- **Allowlisted shell commands** only (Laravel/Node built-ins + optional `ai-dev-bot.config.json` prefixes).
-- **Telegram and/or WhatsApp** as control surfaces for the same `/commands`.
+- **Workspace** (`WORKSPACE_PATH`): tasks, clones, logs, reports, allowlisted dev commands.
+- **`/open`**: Cursor, VS Code, Terminal, Finder, Brave/Safari, plus **built-in Apple apps** by bundle path (e.g. `/open settings`, `/open activity`, `/open mail`, `/open xcode` — see `src/modules/developer-control/adapters/macBundles.ts`).
+- **Browser sandbox**: `/browser open …` with URL rules.
+- **Desktop folders**: `/system create-folder …` (with approvals as configured).
+- **Telegram/WhatsApp**: same command set; **`npm run bot:resident`** for always-on on the iMac.
 
-To automate more **safely**, widen scope gradually: clone repos under `workspace/projects/`, add vetted `extraAllowedCommands`, keep `DRY_RUN=true` until stable, and use macOS **Shortcuts** / **SSH** for OS-level actions outside this sandbox.
+**Pour aller plus loin (hors bot, volontairement)** : **Partage d’écran** ou **SSH** depuis le MacBook, **Raccourcis macOS** pour une action OS ponctuelle, **Tailscale** pour le réseau — voir `docs/REMOTE_ACCESS.md`.
+
+To extend safely in-repo: add projects under `workspace/projects/`, vetted `extraAllowedCommands`, keep `DRY_RUN=true` until stable.
 
 ## Security
 
@@ -159,9 +170,27 @@ Env: `GITHUB_TOKEN`, `GITHUB_REPO` (`owner/repo`). Helpers live in `src/integrat
 
 See **`.env.example`** for:
 
-- `WORKSPACE_PATH`, `DRY_RUN`, `AUTO_APPROVE`
+- `WORKSPACE_PATH`, `DRY_RUN`, `AUTO_APPROVE`, `ASSISTANT_NAME`, `ASSISTANT_GREETING`, `DESKTOP_ALLOWED_PATHS`
 - `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENROUTER_MODEL` (optional / future)
 - `TELEGRAM_*`, `WHATSAPP_*`, `GITHUB_*`
+
+## Resident mode (launch at login)
+
+Run foreground resident mode:
+
+```bash
+npm run bot:resident
+```
+
+This writes heartbeat lines to `WORKSPACE_PATH/logs/resident-heartbeat.log`.
+
+For login startup on macOS (post-login, no bypass), create a LaunchAgent plist that runs:
+
+```text
+node --import tsx/esm /absolute/path/to/dispatcher/src/cli.ts resident
+```
+
+Keep this strictly as a normal user LaunchAgent; do not attempt lock-screen bypass automation.
 
 ## Layout (src)
 

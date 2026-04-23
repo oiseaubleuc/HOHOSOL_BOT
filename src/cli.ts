@@ -16,11 +16,12 @@ function usage(): string {
     `  ai-dev-bot telegram                     — Telegram long-poll control`,
     `  ai-dev-bot whatsapp                     — WhatsApp command listener`,
     `  ai-dev-bot bots                         — Telegram + WhatsApp together (skips missing env)`,
+    `  ai-dev-bot resident                     — launch-at-login style resident mode + heartbeat`,
     `  ai-dev-bot doctor                       — health check (.env, workspace, bots)`,
     `  ai-dev-bot init-templates [--target <dir>] [--force]`,
     ``,
     `Workspace: all bot outputs + default tasks live under WORKSPACE_PATH (default ~/devbot-workspace).`,
-    `See .env.example for OPENAI_API_KEY, GITHUB_*, TELEGRAM_*, WHATSAPP_*, DRY_RUN, AUTO_APPROVE.`,
+    `See .env.example for OPENAI/OpenRouter, ASSISTANT_*, DESKTOP_ALLOWED_PATHS, GITHUB_*, TELEGRAM_*, WHATSAPP_*, DRY_RUN, AUTO_APPROVE.`,
     `See docs/PROJECT_PLAYBOOK.md for a repeatable setup on every client project.`,
     ``,
   ].join("\n");
@@ -184,6 +185,11 @@ async function main(): Promise<void> {
   if (cmd === "bots") {
     const { startBothBotListeners } = await import("./commands/startBots.js");
     await startBothBotListeners(process.cwd());
+    return;
+  }
+  if (cmd === "resident") {
+    const { startResidentMode } = await import("./commands/residentMode.js");
+    await startResidentMode(process.cwd());
     return;
   }
   if (cmd === "doctor") {

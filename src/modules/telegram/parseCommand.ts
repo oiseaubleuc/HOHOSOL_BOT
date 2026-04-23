@@ -1,5 +1,6 @@
 import type { ParsedTelegramCommand } from "./types.js";
 import type { ScaffoldType } from "../../types/scaffold.js";
+import { resolveMacBundleKey } from "../developer-control/adapters/macBundles.js";
 
 const SCAFFOLDS = new Set<string>(["node-api", "nextjs", "laravel", "saas-template"]);
 
@@ -26,9 +27,26 @@ export function parseTelegramCommand(text: string | undefined): ParsedTelegramCo
 
   const arg = (i: number) => tokens[i]?.trim();
 
+  /** Text after token index `from` (slash command tail), capped for Telegram. */
+  function browserQueryFrom(from: number): string | undefined {
+    const rest = tokens.slice(from).join(" ").trim();
+    if (!rest) return undefined;
+    return rest.slice(0, 500);
+  }
+
   switch (base) {
     case "/start":
       return { kind: "start" };
+    case "/help":
+      return { kind: "help" };
+    case "/quick":
+      return { kind: "quick" };
+    case "/menu":
+      return { kind: "menu" };
+    case "/chat": {
+      const rest = tokens.slice(1).join(" ").trim();
+      return { kind: "assistant_chat", message: rest.slice(0, 12000) };
+    }
     case "/tasks":
       return { kind: "tasks" };
     case "/status":
@@ -62,15 +80,25 @@ export function parseTelegramCommand(text: string | undefined): ParsedTelegramCo
       return { kind: "create", name, type };
     }
     case "/open": {
-      const a1 = arg(1)?.toLowerCase();
+      const a1 = arg(1)?.toLowerCase().replace(/_/g, "-");
       if (!a1) return { kind: "unknown", raw: trimmed };
       if (a1 === "localhost") {
         const p = parsePort(arg(2));
         if (!p) return { kind: "unknown", raw: trimmed };
         return { kind: "browser", mode: "localhost", port: p };
       }
-      if (a1 === "youtube") return { kind: "browser", mode: "youtube" };
-      if (a1 === "github") return { kind: "browser", mode: "github" };
+      if (a1 === "youtube") {
+        const q = browserQueryFrom(2);
+        return q ? { kind: "browser", mode: "youtube", query: q } : { kind: "browser", mode: "youtube" };
+      }
+      if (a1 === "github") {
+        const q = browserQueryFrom(2);
+        return q ? { kind: "browser", mode: "github", query: q } : { kind: "browser", mode: "github" };
+      }
+      const macKey = resolveMacBundleKey(a1);
+      if (macKey) {
+        return { kind: "open", target: macKey, project: undefined };
+      }
       const appTargets = new Set(["cursor", "vscode", "terminal", "finder", "brave", "safari"]);
       if (!appTargets.has(a1)) return { kind: "unknown", raw: trimmed };
       return {
@@ -83,8 +111,14 @@ export function parseTelegramCommand(text: string | undefined): ParsedTelegramCo
       const sub = arg(1)?.toLowerCase();
       const what = arg(2)?.toLowerCase();
       if (sub !== "open" || !what) return { kind: "unknown", raw: trimmed };
-      if (what === "youtube") return { kind: "browser", mode: "youtube" };
-      if (what === "github") return { kind: "browser", mode: "github" };
+      if (what === "youtube") {
+        const q = browserQueryFrom(3);
+        return q ? { kind: "browser", mode: "youtube", query: q } : { kind: "browser", mode: "youtube" };
+      }
+      if (what === "github") {
+        const q = browserQueryFrom(3);
+        return q ? { kind: "browser", mode: "github", query: q } : { kind: "browser", mode: "github" };
+      }
       if (what === "localhost") {
         const p = parsePort(arg(3));
         if (!p) return { kind: "unknown", raw: trimmed };
@@ -99,7 +133,8 @@ export function parseTelegramCommand(text: string | undefined): ParsedTelegramCo
     }
     case "/projects":
       return { kind: "projects" };
-    case "/open-project": {
+    case "/open-project":
+    case "/openproject": {
       const n = arg(1);
       if (!n) return { kind: "unknown", raw: trimmed };
       return { kind: "open_project", name: n };
@@ -118,24 +153,37 @@ export function parseTelegramCommand(text: string | undefined): ParsedTelegramCo
     }
     case "/dev": {
       const rest = tokens.slice(1).map((t) => t.trim()).filter(Boolean);
-      if (rest.length === 0) return { kind: "unknown", raw: trimmed };
       return { kind: "dev", tokens: rest };
     }
     case "/ports":
       return { kind: "ports" };
     case "/processes":
       return { kind: "processes" };
-    case "/kill-port": {
+    case "/kill-port":
+    case "/kill_port":
+    case "/killport": {
       const p = parsePort(arg(1));
       if (!p) return { kind: "unknown", raw: trimmed };
       return { kind: "kill_port", port: p };
     }
     case "/system": {
       const sub = arg(1)?.toLowerCase();
-      if (sub !== "create-folder") return { kind: "unknown", raw: trimmed };
+      if (!sub) return { kind: "unknown", raw: trimmed };
+      if (sub !== "create-folder" && sub !== "create-folder-in-desktop" && sub !== "create-folder-in-future-projects") {
+        return { kind: "unknown", raw: trimmed };
+      }
       const folderRaw = tokens.slice(2).join(" ").trim();
       if (!folderRaw) return { kind: "unknown", raw: trimmed };
-      return { kind: "system", action: "create-folder", folderName: folderRaw };
+      return {
+        kind: "system",
+        action: sub as "create-folder" | "create-folder-in-desktop" | "create-folder-in-future-projects",
+        folderName: folderRaw,
+      };
+    }
+    case "/ask": {
+      const instruction = tokens.slice(1).join(" ").trim();
+      if (!instruction) return { kind: "unknown", raw: trimmed };
+      return { kind: "ask", instruction };
     }
     default:
       return { kind: "unknown", raw: trimmed };

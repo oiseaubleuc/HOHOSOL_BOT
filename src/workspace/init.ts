@@ -15,7 +15,10 @@ let cache: BotEnvironment | undefined;
 export async function getBotEnvironment(repoRoot = process.cwd()): Promise<BotEnvironment> {
   if (cache) return cache;
   const cfg = loadRuntimeConfig(repoRoot);
-  const ws = new WorkspaceManager(cfg.workspacePath);
+  const ws = new WorkspaceManager(
+    cfg.workspacePath,
+    cfg.projectsDir ? { projectsDir: cfg.projectsDir } : undefined,
+  );
   await ws.ensureLayout();
   await bootstrapDefaultWorkspaceContent(ws, repoRoot);
   ApprovalBus.get().setAutoApprove(cfg.autoApprove);

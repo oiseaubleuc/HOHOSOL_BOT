@@ -6,8 +6,16 @@ let loaded = false;
 
 export interface RuntimeConfig {
   workspacePath: string;
+  /**
+   * If set, scaffolds & project operations use this folder instead of `WORKSPACE_PATH/projects`.
+   * Example: ~/Documents/HOHOSOL
+   */
+  projectsDir?: string;
   dryRun: boolean;
   autoApprove: boolean;
+  assistantName: string;
+  assistantGreeting: string;
+  desktopAllowedPaths: string[];
   openaiApiKey?: string;
   openaiBaseUrl?: string;
   openaiModel?: string;
@@ -42,13 +50,36 @@ export function loadRuntimeConfig(cwd = process.cwd()): RuntimeConfig {
     return path.isAbsolute(expanded) ? expanded : path.resolve(cwd, expanded);
   })();
 
+  const projectsDir = (() => {
+    const raw = process.env.DEVBOT_PROJECTS_DIR?.trim();
+    if (!raw) return undefined;
+    const expanded = expandHome(raw);
+    return path.isAbsolute(expanded) ? expanded : path.resolve(cwd, expanded);
+  })();
+
   const dryRun = (process.env.DRY_RUN ?? "true").toLowerCase() === "true";
   const autoApprove = (process.env.AUTO_APPROVE ?? "false").toLowerCase() === "true";
+  const assistantName = process.env.ASSISTANT_NAME?.trim() || "devBOT";
+  const assistantGreeting = process.env.ASSISTANT_GREETING?.trim() || "devBOT ready 🚀";
+  const desktopAllowedPaths = (() => {
+    const raw = process.env.DESKTOP_ALLOWED_PATHS?.trim();
+    if (!raw) return ["~/Desktop", "~/Desktop/future-projects", "~/Desktop/Future Project"];
+    return raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map(expandHome)
+      .map((p) => (path.isAbsolute(p) ? p : path.resolve(cwd, p)));
+  })();
 
   return {
     workspacePath,
+    projectsDir,
     dryRun,
     autoApprove,
+    assistantName,
+    assistantGreeting,
+    desktopAllowedPaths,
     openaiApiKey: process.env.OPENAI_API_KEY?.trim() || undefined,
     openaiBaseUrl: process.env.OPENAI_BASE_URL?.trim() || undefined,
     openaiModel: process.env.OPENAI_MODEL?.trim() || undefined,

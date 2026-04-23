@@ -17,6 +17,7 @@ export type ActionType =
   | "RUN_TESTS"
   | "RUN_LINT"
   | "GIT_STATUS"
+  | "GIT_DIFF"
   | "GIT_CREATE_BRANCH"
   | "GIT_COMMIT"
   | "GIT_PUSH"
@@ -26,7 +27,9 @@ export type ActionType =
   | "APPLY_PATCH"
   | "LIST_PORTS"
   | "LIST_PROCESSES"
-  | "KILL_PORT";
+  | "KILL_PORT"
+  | "CREATE_FOLDER"
+  | "OPEN_MAC_APP";
 
 export interface ActionResult {
   success: boolean;

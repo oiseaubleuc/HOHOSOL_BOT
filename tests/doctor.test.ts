@@ -15,6 +15,7 @@ describe("doctor", () => {
     expect(lines.length).toBeGreaterThan(3);
     expect(lines.some((l) => l.message.includes("Node"))).toBe(true);
     expect(lines.some((l) => l.message.includes("WORKSPACE_PATH"))).toBe(true);
+    expect(lines.some((l) => l.message.includes("Projects dir"))).toBe(true);
   });
 
   it("runDoctor exits 0 or 1", async () => {

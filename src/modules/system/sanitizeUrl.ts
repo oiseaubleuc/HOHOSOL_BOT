@@ -50,6 +50,22 @@ export function presetUrl(kind: "youtube" | "github"): string {
   return "https://github.com/";
 }
 
+const MAX_SEARCH_QUERY_LEN = 500;
+
+/** YouTube results page for a search (hostname allowlisted). */
+export function youtubeSearchResultsUrl(rawQuery: string): string {
+  const q = rawQuery.trim().slice(0, MAX_SEARCH_QUERY_LEN);
+  if (!q) return presetUrl("youtube");
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+}
+
+/** GitHub code/repo search for a query (hostname allowlisted). */
+export function githubSearchResultsUrl(rawQuery: string): string {
+  const q = rawQuery.trim().slice(0, MAX_SEARCH_QUERY_LEN);
+  if (!q) return presetUrl("github");
+  return `https://github.com/search?q=${encodeURIComponent(q)}&type=repositories`;
+}
+
 export function localhostUrl(port: number): string {
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error("Invalid port");

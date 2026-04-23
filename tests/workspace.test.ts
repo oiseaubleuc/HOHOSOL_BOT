@@ -15,4 +15,14 @@ describe("WorkspaceManager.assertPathInWorkspace", () => {
     const ws = new WorkspaceManager(root);
     expect(() => ws.assertPathInWorkspace(path.join(root, "..", "etc", "passwd"))).toThrow(/outside workspace/i);
   });
+
+  it("allows project paths under DEVBOT-style external projectsDir", () => {
+    const root = path.join(os.tmpdir(), "devbot-ws-ext-root");
+    const pd = path.join(os.tmpdir(), "HOHOSOL-projects");
+    const ws = new WorkspaceManager(root, { projectsDir: pd });
+    expect(ws.projectsDir()).toBe(pd);
+    ws.assertPathInWorkspace(path.join(pd, "my-app"));
+    ws.assertPathInWorkspace(path.join(pd, "my-app", "src", "index.ts"));
+    expect(() => ws.assertPathInWorkspace(path.join(pd, "..", "outside"))).toThrow(/outside workspace/i);
+  });
 });

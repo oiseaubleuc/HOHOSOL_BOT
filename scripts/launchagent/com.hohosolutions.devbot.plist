@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.hohosolutions.devbot</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>/usr/local/bin/node</string>
+      <string>--import</string>
+      <string>tsx/esm</string>
+      <string>/Users/REPLACE_ME/Documents/PROJECTS/dispatcher/src/cli.ts</string>
+      <string>resident</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/REPLACE_ME/Documents/PROJECTS/dispatcher</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/REPLACE_ME/Library/Logs/devbot.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/REPLACE_ME/Library/Logs/devbot.err.log</string>
+  </dict>
+</plist>
+

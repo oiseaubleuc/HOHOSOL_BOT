@@ -5,14 +5,14 @@ const TELEGRAM_MESSAGE_MAX = 4090;
 function formatTelegramBody(payload: NotificationPayload): string {
   switch (payload.kind) {
     case "task_started":
-      return `Started (${payload.mode})\n${payload.taskId} — ${payload.title}\n${payload.projectRoot}`;
+      return `▶ ${payload.taskId} (${payload.mode})\n${payload.title}\n${payload.projectRoot}`;
     case "task_completed":
-      return `Completed\n${payload.taskId} — ${payload.title}\n${payload.summary}`;
+      return `✅ ${payload.taskId}\n${payload.title}\n${payload.summary}`;
     case "task_failed":
-      return `Failed\n${payload.taskId} — ${payload.title}\n${payload.error}`;
+      return `❌ ${payload.taskId}\n${payload.title}\n${payload.error}`;
     case "task_requires_approval":
       return (
-        `Approval required\n${payload.taskId} — ${payload.title}\n` +
+        `⏸ Approval · ${payload.taskId}\n${payload.title}\n` +
         `checksum: ${payload.checksum}\nproposal: ${payload.proposalPath}\ndryRun: ${String(payload.dryRun)}`
       );
     default: {
@@ -44,7 +44,7 @@ export class TelegramNotifier implements Notifier {
   }
 
   async notify(payload: NotificationPayload): Promise<void> {
-    const text = truncateForTelegram(`devBOT · ${formatTelegramBody(payload)}`);
+    const text = truncateForTelegram(`devBOT\n${formatTelegramBody(payload)}`);
     const url = `https://api.telegram.org/bot${this.token}/sendMessage`;
     const body = {
       chat_id: this.chatId,

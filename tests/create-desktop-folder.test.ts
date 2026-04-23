@@ -14,4 +14,8 @@ describe("sanitizeDesktopFolderName", () => {
   it("rejects names with traversal remnants", () => {
     expect(() => sanitizeDesktopFolderName("..")).toThrow();
   });
+
+  it("rejects slashes", () => {
+    expect(() => sanitizeDesktopFolderName("a/b")).toThrow(/slashes/i);
+  });
 });

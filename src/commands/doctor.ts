@@ -52,7 +52,13 @@ export async function collectDoctorLines(repoRoot: string): Promise<DoctorLine[]
 
   const cfg = loadRuntimeConfig(repoRoot);
   lines.push({ level: "info", message: `WORKSPACE_PATH → ${cfg.workspacePath}` });
+  lines.push({
+    level: "info",
+    message: `Projects dir → ${cfg.projectsDir ?? path.join(cfg.workspacePath, "projects")}${cfg.projectsDir ? " (DEVBOT_PROJECTS_DIR)" : " (default)"}`,
+  });
   lines.push({ level: "info", message: `DRY_RUN=${cfg.dryRun} AUTO_APPROVE=${cfg.autoApprove}` });
+  lines.push({ level: "info", message: `ASSISTANT_NAME=${cfg.assistantName}` });
+  lines.push({ level: "info", message: `DESKTOP_ALLOWED_PATHS=${cfg.desktopAllowedPaths.join(", ")}` });
 
   const tasksDir = path.join(cfg.workspacePath, "tasks");
   const taskFiles = (await fs.readdir(tasksDir).catch(() => [])).filter((f) => f.endsWith(".json"));
@@ -94,6 +100,9 @@ export async function collectDoctorLines(repoRoot: string): Promise<DoctorLine[]
     lines.push({ level: "ok", message: "OPENAI_API_KEY is set (optional coaching)" });
   } else {
     lines.push({ level: "info", message: "OPENAI_API_KEY not set (optional)" });
+  }
+  if (cfg.openRouterModel) {
+    lines.push({ level: "info", message: `OPENROUTER_MODEL=${cfg.openRouterModel}` });
   }
 
   if (process.env.GITHUB_TOKEN?.trim() && process.env.GITHUB_REPO?.trim()) {

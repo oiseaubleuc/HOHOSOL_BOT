@@ -9,6 +9,7 @@ const APPROVAL: ActionType[] = [
   "GIT_COMMIT",
   "GIT_PUSH",
   "KILL_PORT",
+  "CREATE_FOLDER",
 ];
 
 const DENY: ActionType[] = [];

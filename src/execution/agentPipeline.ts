@@ -14,6 +14,8 @@ export interface AgentPipelineDeps {
   cfg: RuntimeConfig;
   running: RunningTaskRegistry;
   bus: ApprovalBus;
+  /** Optional Telegram (or other) ping between phases — keep short for mobile. */
+  notify?: (text: string) => Promise<void>;
 }
 
 /**
@@ -25,7 +27,7 @@ export async function runAgentPipeline(
   title: string,
   deps: AgentPipelineDeps,
 ): Promise<void> {
-  const { ws, cfg, running, bus } = deps;
+  const { ws, cfg, running, bus, notify } = deps;
   const logPath = ws.logFile(taskId);
   const log = new TaskLog(logPath);
   running.start(taskId, logPath);
@@ -33,11 +35,16 @@ export async function runAgentPipeline(
   const phases: string[] = [];
   const signal = running.signal(taskId);
 
+  const ping = async (text: string) => {
+    if (notify) await notify(text);
+  };
+
   const fail = async (err: unknown) => {
     const msg = err instanceof Error ? err.message : String(err);
     await log.line("ERROR", "Pipeline failed", { message: msg });
     await appendTaskMemory(ws, taskId, { phase: "failed", note: msg }, { lastError: msg });
     running.finish(taskId, "failed", msg);
+    await ping(`❌ ${taskId}\n${msg}\n/logs ${taskId}`).catch(() => undefined);
   };
 
   try {
@@ -49,6 +56,17 @@ export async function runAgentPipeline(
       await log.line("INFO", "Global DRY_RUN=true — shell execution steps will be skipped after plan.");
     }
 
+    await ping(
+      [
+        `▶ ${taskId}`,
+        `📝 ${title}`,
+        `1) Proposal + dry-run (safe)`,
+        `⏸ Approve: /approve ${taskId}`,
+        cfg.dryRun ? "🧪 DRY_RUN on — no shell after plan." : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
     await bus.wait(taskId, "Approve writing proposal + dry-run report under workspace");
     if (signal?.aborted) throw new Error("aborted");
     running.update(taskId, { phase: "planning" });
@@ -81,6 +99,9 @@ export async function runAgentPipeline(
       });
       await writeTextFile(ws.reportFile(taskId, "agent"), reportMd);
       running.finish(taskId, "failed", dry.error);
+      await ping(
+        `❌ ${taskId} — dry-run failed\n${dry.error ?? dry.status}\n/report ${taskId}${coach ? `\n💡 Hint logged in report.` : ""}`,
+      ).catch(() => undefined);
       return;
     }
 
@@ -99,9 +120,20 @@ export async function runAgentPipeline(
       });
       await writeTextFile(ws.reportFile(taskId, "agent"), reportMd);
       running.finish(taskId, "completed");
+      await ping(
+        [
+          `✅ ${taskId} — plan ready`,
+          `🧪 DRY_RUN=true: skipped shell on worker.`,
+          `📄 /report ${taskId}`,
+        ].join("\n"),
+      ).catch(() => undefined);
       return;
     }
 
+    const shortSum = dry.proposalChecksum ? `checksum ${dry.proposalChecksum.slice(0, 12)}…` : "checksum n/a";
+    await ping(
+      [`✓ ${taskId} — dry-run OK (${shortSum})`, `2) Run inspect commands on iMac`, `⏸ Approve: /approve ${taskId}`].join("\n"),
+    );
     await bus.wait(taskId, "Approve running allowlisted inspect commands");
     if (signal?.aborted) throw new Error("aborted");
     running.update(taskId, { phase: "running_commands" });
@@ -141,6 +173,16 @@ export async function runAgentPipeline(
     await writeTextFile(ws.reportFile(taskId, "agent"), reportMd);
     await log.line("INFO", "Pipeline completed", { report: ws.reportFile(taskId, "agent") });
     running.finish(taskId, exec.commandFailed ? "failed" : "completed", exec.commandFailed ? "command_failed" : undefined);
+    if (exec.commandFailed) {
+      const tail =
+        exec.results
+          ?.map((r) => `${r.label} exit=${r.exitCode}`)
+          .slice(0, 4)
+          .join("\n") ?? "command_failed";
+      await ping(`❌ ${taskId} — commands failed\n${tail}\n/report ${taskId}\n/logs ${taskId}`).catch(() => undefined);
+    } else {
+      await ping(`✅ ${taskId} — finished\n/report ${taskId}\n/logs ${taskId}`).catch(() => undefined);
+    }
   } catch (e) {
     await fail(e);
   }

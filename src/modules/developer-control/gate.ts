@@ -11,7 +11,7 @@ export async function gateAndRun(
 ): Promise<ActionResult> {
   const p = policyForAction(actionType);
   if (p === "deny") {
-    return { success: false, actionType, summary: "Denied by policy", error: "deny" };
+    return { success: false, actionType, summary: "Blocked by policy", error: "deny" };
   }
   if (p === "requires_approval" && !cfg.autoApprove) {
     const id = createDevActionId();
@@ -24,7 +24,7 @@ export async function gateAndRun(
     return {
       success: true,
       actionType,
-      summary: `Pending approval: ${summary}`,
+      summary: `Pending: ${summary}`,
       requiresApproval: true,
       details: `/approve ${id}`,
     };
@@ -44,8 +44,8 @@ export function dryRunBlock(cfg: RuntimeConfig, actionType: ActionType, label: s
     return {
       success: true,
       actionType,
-      summary: `DRY_RUN: skipped ${label}`,
-      details: "Set DRY_RUN=false to execute after approval where required.",
+      summary: `DRY_RUN: skipped (${label})`,
+      details: "Set `DRY_RUN=false` on the worker, then approve again if the action needs execution.",
     };
   }
   return null;

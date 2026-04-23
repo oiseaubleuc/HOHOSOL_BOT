@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { WorkspaceManager } from "../../workspace/workspaceManager.js";
+import type { RuntimeConfig } from "../../config/runtimeConfig.js";
 
 const SAFE_NAME = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/;
 
@@ -22,4 +23,19 @@ export function resolvePathInWorkspace(ws: WorkspaceManager, absoluteOrRelativeF
     : path.resolve(ws.root, absoluteOrRelativeFromWorkspace);
   ws.assertPathInWorkspace(abs);
   return abs;
+}
+
+/**
+ * Validates an absolute path is inside one of configured desktop allowlist roots.
+ */
+export function assertPathInDesktopAllowlist(cfg: RuntimeConfig, absoluteTarget: string): void {
+  const target = path.resolve(absoluteTarget);
+  const ok = cfg.desktopAllowedPaths.some((rootRaw) => {
+    const root = path.resolve(rootRaw);
+    const rel = path.relative(root, target);
+    return !rel.startsWith("..") && !path.isAbsolute(rel);
+  });
+  if (!ok) {
+    throw new Error(`Path outside DESKTOP_ALLOWED_PATHS: ${target}`);
+  }
 }

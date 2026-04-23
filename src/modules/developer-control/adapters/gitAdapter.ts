@@ -20,9 +20,10 @@ export async function gitDiff(ws: WorkspaceManager, projectName: string): Promis
   const r = await runSafeArgv(ws, root, ["git", "diff", "--stat"]);
   return {
     success: r.exitCode === 0,
-    actionType: "GIT_STATUS",
+    actionType: "GIT_DIFF",
     summary: `git diff --stat (${projectName})`,
     output: `${r.stdout}\n${r.stderr}`.trim().slice(0, 3500),
+    error: r.exitCode === 0 ? undefined : `exit ${r.exitCode}`,
   };
 }
 
@@ -52,6 +53,18 @@ export async function gitCommit(ws: WorkspaceManager, projectName: string, messa
     actionType: "GIT_COMMIT",
     summary: `git commit (${projectName})`,
     output: `${r.stdout}\n${r.stderr}`.trim(),
+    error: r.exitCode === 0 ? undefined : `exit ${r.exitCode}`,
+  };
+}
+
+export async function gitPush(ws: WorkspaceManager, projectName: string): Promise<ActionResult> {
+  const root = resolveProjectInWorkspace(ws, projectName);
+  const r = await runSafeArgv(ws, root, ["git", "push"]);
+  return {
+    success: r.exitCode === 0,
+    actionType: "GIT_PUSH",
+    summary: `git push (${projectName})`,
+    output: `${r.stdout}\n${r.stderr}`.trim().slice(0, 3500),
     error: r.exitCode === 0 ? undefined : `exit ${r.exitCode}`,
   };
 }

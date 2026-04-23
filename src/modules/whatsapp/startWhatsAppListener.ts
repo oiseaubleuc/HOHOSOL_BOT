@@ -40,7 +40,7 @@ export async function startWhatsAppCommandListener(cwd = process.cwd()): Promise
   });
 
   const client = {
-    async sendMessage(_: number, text: string): Promise<void> {
+    async sendMessage(_: number, text: string, _options?: unknown): Promise<void> {
       await wa.sendMessage(allowedChat, text);
     },
   };
