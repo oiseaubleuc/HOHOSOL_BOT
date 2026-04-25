@@ -1,0 +1,85 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package-and-release:
+    name: Package and publish release
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main'
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build Node package
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build Python wheel and sdist
+        run: |
+          python -m pip install --upgrade pip setuptools wheel build
+          python -m build
+
+      - name: Prepare release artifacts
+        run: |
+          mkdir -p release
+          tar -czf release/node-dist.tar.gz dist
+          cp README.md release/README.md
+          cp pyproject.toml release/pyproject.toml
+          cp -r dist release/dist
+          cp -r dist/*.js release/ 2>/dev/null || true
+          cp dist/cli.js release/cli.js
+
+      - name: Upload release bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-bundle
+          path: |
+            release/**
+            dist/**
+            dist/*.whl
+            dist/*.tar.gz
+
+      - name: Generate release tag
+        run: echo "RELEASE_TAG=build-${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: HOHOBOT ${{ env.RELEASE_TAG }}
+          target_commitish: main
+          prerelease: true
+          generate_release_notes: true
+          files: |
+            release/node-dist.tar.gz
+            dist/*.whl
+            dist/*.tar.gz
