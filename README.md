@@ -233,6 +233,7 @@ This repository now includes a local-first AI assistant foundation inspired by O
   - calculator
   - web search URL helper
 - API server:
+  - `GET /` — **Liquid glass** web UI (spatial canvas, glass chat)
   - `GET /health`
   - `POST /v1/chat/completions` (OpenAI-style shape)
 - CLI:
@@ -272,11 +273,12 @@ hobot ask "calc: 12 * 11"
 hobot ask "search: local-first ai frameworks"
 ```
 
-Run API:
+Run API + open the dashboard:
 
 ```bash
 hobot serve --port 8000
 curl http://localhost:8000/health
+# Browser: http://localhost:8000/
 ```
 
 ## Enable Opik (free/open-source)
@@ -302,4 +304,4 @@ For self-host Opik stack, use their `opik.sh` deployment from the Opik repositor
 - Memory/RAG index (`sqlite` first, then `faiss`)
 - Prompt + model eval harness with Opik experiments
 - Scheduled agents (digest/monitor style)
-- Frontend chat client
+- Richer tool UI and streaming tokens in the dashboard
