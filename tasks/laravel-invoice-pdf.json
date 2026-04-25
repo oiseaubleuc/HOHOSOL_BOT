@@ -1,0 +1,16 @@
+{
+  "id": "ACME-1842",
+  "title": "Invoice PDF shows 0€ when stacked percentage discounts apply",
+  "description": "Reproduce on staging: create invoice with two percentage discounts. Subtotal is correct in the UI but the generated PDF totals show 0.00 for VAT and total. Suspect rounding or double application in the PDF pipeline.",
+  "projectRoot": "../projects/sample-laravel",
+  "priority": "high",
+  "acceptanceCriteria": [
+    { "id": "AC-1", "description": "PDF totals match the web invoice view for stacked discounts." },
+    { "id": "AC-2", "description": "Regression test covers two percentage discounts + VAT." }
+  ],
+  "fileHints": [
+    { "path": "app/Http/Controllers/Billing/InvoiceController.php", "reason": "PDF download entrypoint" },
+    { "path": "resources/views/pdf/invoice.blade.php", "reason": "Template totals" }
+  ],
+  "labels": ["laravel", "billing", "pdf"]
+}

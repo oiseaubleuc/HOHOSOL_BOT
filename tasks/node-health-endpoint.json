@@ -1,0 +1,8 @@
+{
+  "id": "NODE-12",
+  "title": "Expose /health for load balancer",
+  "description": "Add a lightweight JSON health endpoint that does not hit the database, suitable for k8s probes.",
+  "projectRoot": "../projects/sample-node",
+  "priority": "low",
+  "labels": ["node", "ops"]
+}

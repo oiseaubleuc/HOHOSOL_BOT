@@ -10,3 +10,6 @@ coverage/
 *.proposal.json
 /reports/
 /proposals/
+.venv/
+__pycache__/
+*.pyc

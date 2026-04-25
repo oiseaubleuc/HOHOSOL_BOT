@@ -1,0 +1,11 @@
+{
+  "id": "SHOP-901",
+  "title": "API route returns 404 for nested resource",
+  "description": "`GET /api/v1/shops/{shop}/products/{product}` returns 404 even when both IDs exist. Works for flat `/api/v1/products/{id}`.",
+  "projectRoot": "../projects/sample-laravel",
+  "priority": "medium",
+  "acceptanceCriteria": [
+    { "id": "AC-1", "description": "Nested route resolves to ProductController@show scoped by shop." }
+  ],
+  "labels": ["laravel", "routing", "api"]
+}

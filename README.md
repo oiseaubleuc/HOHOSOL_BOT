@@ -214,3 +214,92 @@ Keep this strictly as a normal user LaunchAgent; do not attempt lock-screen bypa
 - **Web dashboard** is not included; the Telegram + CLI surface is designed so you can add HTTP later.
 - **Full code generation** is stubbed via reports + optional OpenAI coaching; plug your model or Cursor-style worker where `runTaskWorkflow` ends.
 - `npm run bot:run -- <taskId>` currently performs a **workspace dry-run** for that id; use `run` with `--approve-checksum` for execute, or Telegram `/run` + `/approve`.
+
+---
+
+## HOHOBOT Local-First Starter Add-on
+
+# HOHOBOT (OpenJarvis-style starter)
+
+This repository now includes a local-first AI assistant foundation inspired by OpenJarvis, with free/open-source observability via Opik.
+
+## What is implemented
+
+- Local-first engine abstraction with `OllamaEngine`
+- Two agent modes:
+  - `simple` (single-turn LLM call)
+  - `orchestrator` (basic tool routing with `calc:` and `search:` prefixes)
+- Tool layer:
+  - calculator
+  - web search URL helper
+- API server:
+  - `GET /health`
+  - `POST /v1/chat/completions` (OpenAI-style shape)
+- CLI:
+  - `hobot ask "..." --agent orchestrator`
+  - `hobot serve --port 8000`
+  - `hobot doctor`
+- Opik integration hooks for request tracing
+
+## Quick start
+
+```bash
+cd /Users/HOHOSOLUTIONS/Documents/HOHOBOT
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip setuptools wheel
+pip install -e .
+```
+
+Start Ollama and pull a model:
+
+```bash
+# macOS
+brew install ollama
+
+# start server (keep this terminal open)
+ollama serve
+
+# in a second terminal
+ollama pull qwen3:0.6b
+```
+
+Ask a question:
+
+```bash
+hobot ask "What is the capital of France?"
+hobot ask "calc: 12 * 11"
+hobot ask "search: local-first ai frameworks"
+```
+
+Run API:
+
+```bash
+hobot serve --port 8000
+curl http://localhost:8000/health
+```
+
+## Enable Opik (free/open-source)
+
+Install is already included in dependencies. Enable local self-host mode:
+
+```bash
+export HOHOBOT_OPIK_ENABLED=true
+export HOHOBOT_OPIK_LOCAL=true
+```
+
+Then run:
+
+```bash
+hobot ask "Hello with trace"
+```
+
+For self-host Opik stack, use their `opik.sh` deployment from the Opik repository and keep `HOHOBOT_OPIK_LOCAL=true`.
+
+## Next recommended upgrades
+
+- Real multi-step tool-calling loop with structured tool schemas
+- Memory/RAG index (`sqlite` first, then `faiss`)
+- Prompt + model eval harness with Opik experiments
+- Scheduled agents (digest/monitor style)
+- Frontend chat client

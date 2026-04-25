@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hohobot"
+version = "0.1.0"
+description = "Local-first personal AI starter with Opik tracing"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "click>=8.1",
+  "fastapi>=0.115",
+  "httpx>=0.28",
+  "pydantic>=2.8",
+  "uvicorn>=0.30",
+  "opik>=2.0.14",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3",
+  "ruff>=0.8",
+]
+
+[project.scripts]
+hobot = "hohobot.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
