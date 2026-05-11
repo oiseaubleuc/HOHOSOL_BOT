@@ -18,6 +18,7 @@ import { getActiveProjectName } from "../developer-control/activeProjectStore.js
 import { gateAndRun } from "../developer-control/gate.js";
 import { planAskInstruction } from "./askPlanner.js";
 import { runAssistantChat } from "./telegramAssistantChat.js";
+import { callHohobotAgent, callHohobotChat } from "./hohobotBridge.js";
 import { formatLogTailForTelegram, humanizePipelinePhase, truncateTelegram } from "./telegramUx.js";
 import { devBotInlineMenu, devBotReplyKeyboard, inlineMenuIntroText } from "./telegramKeyboards.js";
 import { devBotStartLines, devBotHelpFull, devBotQuickSheet } from "./telegramHelpMessages.js";
@@ -311,6 +312,46 @@ export async function dispatchTelegramCommand(cmd: ParsedTelegramCommand, ctx: T
           await send(formatActionResult(res));
           ctx.status.record(`/system create-folder-in-future-projects ${cmd.folderName}`);
         }
+        return;
+      }
+
+      case "hohobot_ai": {
+        try {
+          const reply = await callHohobotChat(ctx.cfg, cmd.message, "orchestrator");
+          await send(reply);
+        } catch (e) {
+          const m = e instanceof Error ? e.message : String(e);
+          await send(
+            [
+              "❌ `/ai` — impossible d’atteindre HOHOBOT.",
+              "Sur l’iMac : `hobot serve --port 8000` (ou `HOHOBOT_BASE_URL` si autre port).",
+              m ? `Détail : ${m}` : "",
+            ]
+              .filter(Boolean)
+              .join("\n"),
+          );
+        }
+        ctx.status.record("/ai");
+        return;
+      }
+
+      case "hohobot_agent": {
+        try {
+          const reply = await callHohobotAgent(ctx.cfg, cmd.message);
+          await send(reply);
+        } catch (e) {
+          const m = e instanceof Error ? e.message : String(e);
+          await send(
+            [
+              "❌ `/agent` — échec (Claude + outils).",
+              "Vérifie : `hobot serve`, `ANTHROPIC_API_KEY` côté Python, `HOHOBOT_BASE_URL` / token si besoin.",
+              m ? `Détail : ${m}` : "",
+            ]
+              .filter(Boolean)
+              .join("\n"),
+          );
+        }
+        ctx.status.record("/agent");
         return;
       }
 

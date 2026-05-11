@@ -225,22 +225,18 @@ This repository now includes a local-first AI assistant foundation inspired by O
 
 ## What is implemented
 
-- Local-first engine abstraction with `OllamaEngine`
-- Two agent modes:
-  - `simple` (single-turn LLM call)
-  - `orchestrator` (basic tool routing with `calc:` and `search:` prefixes)
-- Tool layer:
-  - calculator
-  - web search URL helper
+- **Hybrid AI router** (`hohobot/engines/router.py`): Ollama local (7B default), `@fast` (3B), `@cloud`, optional Anthropic/OpenAI, timeouts + cloud fallback
+- `OllamaEngine` health checks; orchestrator keeps `calc:` / `search:` tools
+- **Claude agent loop** (`hobot agent "..."` / `POST /v1/agent/run`): sandboxed workspace tools (`read_file`, `list_dir`, `run_shell`) — requires `ANTHROPIC_API_KEY` and `pip install ".[cloud]"`
 - API server:
-  - `GET /` — **Liquid glass** web UI (spatial canvas, glass chat)
+  - `GET /` — **Liquid glass** web UI
   - `GET /health`
-  - `POST /v1/chat/completions` (OpenAI-style shape)
-- CLI:
-  - `hobot ask "..." --agent orchestrator`
-  - `hobot serve --port 8000`
-  - `hobot doctor`
-- Opik integration hooks for request tracing
+  - `POST /v1/chat/completions` — JSON étendu avec `hohobot_engine`, `hohobot_ms` si pertinent
+  - `POST /v1/agent/run` — boucle agent
+  - Auth optionnelle : header `X-HOHOBOT-Token` si `HOHOBOT_API_TOKEN` est défini
+- **Telegram** (listener Node) : `/ai …` et `/agent …` → `HOHOBOT_BASE_URL` (défaut `http://127.0.0.1:8000`)
+- CLI : `hobot ask`, `hobot agent`, `hobot serve --host 0.0.0.0`, `hobot doctor`
+- Opik (tracing) optionnel
 
 ## Quick start
 
@@ -249,20 +245,30 @@ cd /Users/HOHOSOLUTIONS/Documents/HOHOBOT
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip setuptools wheel
-pip install -e .
+pip install -e ".[cloud]"
 ```
 
-Start Ollama and pull a model:
+Cloud deps are optional for pure-local use; use `pip install -e .` only if you skip Anthropic/OpenAI.
+
+Copy `.env.example` → `.env` and set at least Ollama + optional API keys (see comments). Example hybrid env:
+
+```env
+HOHOBOT_OLLAMA_MODEL=qwen2.5:7b-instruct
+HOHOBOT_OLLAMA_FAST_MODEL=qwen2.5:3b-instruct
+HOHOBOT_DEFAULT_ENGINE=local
+# ANTHROPIC_API_KEY=...   # for @cloud / fallback / agent
+```
+
+Start Ollama and pull models:
 
 ```bash
 # macOS
 brew install ollama
 
-# start server (keep this terminal open)
 ollama serve
 
-# in a second terminal
-ollama pull qwen3:0.6b
+ollama pull qwen2.5:7b-instruct
+ollama pull qwen2.5:3b-instruct
 ```
 
 Ask a question:
@@ -271,15 +277,19 @@ Ask a question:
 hobot ask "What is the capital of France?"
 hobot ask "calc: 12 * 11"
 hobot ask "search: local-first ai frameworks"
+hobot ask "@cloud Réponds en une phrase."
+hobot agent "Liste le dossier projects du workspace et résume."
 ```
 
-Run API + open the dashboard:
+Run API (écoute toutes les interfaces — Tailscale / LAN) + dashboard :
 
 ```bash
-hobot serve --port 8000
+hobot serve --host 0.0.0.0 --port 8000
 curl http://localhost:8000/health
-# Browser: http://localhost:8000/
+# Browser: http://localhost:8000/  — si `HOHOBOT_API_TOKEN` est défini, dans la console : localStorage.setItem('hohobot_api_token','...')
 ```
+
+LaunchAgent exemple (resident Telegram) : `scripts/launchagent/com.hohosol.bot.plist` — adapte les chemins utilisateur, puis `launchctl load -w ~/Library/LaunchAgents/com.hohosol.bot.plist`.
 
 ## Enable Opik (free/open-source)
 
@@ -300,8 +310,6 @@ For self-host Opik stack, use their `opik.sh` deployment from the Opik repositor
 
 ## Next recommended upgrades
 
-- Real multi-step tool-calling loop with structured tool schemas
-- Memory/RAG index (`sqlite` first, then `faiss`)
-- Prompt + model eval harness with Opik experiments
-- Scheduled agents (digest/monitor style)
-- Richer tool UI and streaming tokens in the dashboard
+- SSE streaming in the dashboard + `/v1/chat/completions`
+- Memory/RAG index (`sqlite` then FAISS)
+- Opik eval datasets pour le routeur hybride

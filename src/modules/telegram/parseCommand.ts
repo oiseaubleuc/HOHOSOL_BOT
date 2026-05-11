@@ -185,6 +185,16 @@ export function parseTelegramCommand(text: string | undefined): ParsedTelegramCo
       if (!instruction) return { kind: "unknown", raw: trimmed };
       return { kind: "ask", instruction };
     }
+    case "/ai": {
+      const message = tokens.slice(1).join(" ").trim();
+      if (!message) return { kind: "unknown", raw: trimmed };
+      return { kind: "hohobot_ai", message };
+    }
+    case "/agent": {
+      const message = tokens.slice(1).join(" ").trim();
+      if (!message) return { kind: "unknown", raw: trimmed };
+      return { kind: "hohobot_agent", message };
+    }
     default:
       return { kind: "unknown", raw: trimmed };
   }

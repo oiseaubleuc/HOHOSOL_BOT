@@ -61,7 +61,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install ".[dev]"
+          pip install ".[dev,cloud]"
 
       - name: Run tests
         run: pytest -q

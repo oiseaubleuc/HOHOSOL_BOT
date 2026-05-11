@@ -43,6 +43,10 @@ export type ParsedTelegramCommand =
       folderName: string;
     }
   | { kind: "ask"; instruction: string }
+  /** HOHOBOT hybrid router (`hobot serve` must be running). */
+  | { kind: "hohobot_ai"; message: string }
+  /** HOHOBOT Claude tool agent (`hobot serve` + ANTHROPIC_API_KEY on worker). */
+  | { kind: "hohobot_agent"; message: string }
   /** LLM conversation only (`/chat …`) — does not run shell / open apps. */
   | { kind: "assistant_chat"; message: string }
   | { kind: "unknown"; raw: string };

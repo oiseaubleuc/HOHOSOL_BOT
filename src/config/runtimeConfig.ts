@@ -28,6 +28,10 @@ export interface RuntimeConfig {
   telegramPollTimeoutSec: number;
   whatsappAllowedChat?: string;
   whatsappSessionName?: string;
+  /** Base URL for `hobot serve` (default http://127.0.0.1:8000). Used by `/ai` and `/agent`. */
+  hohobotBaseUrl?: string;
+  /** Optional `X-HOHOBOT-Token` if HOHOBOT_API_TOKEN is set on the Python server. */
+  hohobotApiToken?: string;
 }
 
 function expandHome(p: string): string {
@@ -94,6 +98,8 @@ export function loadRuntimeConfig(cwd = process.cwd()): RuntimeConfig {
     ),
     whatsappAllowedChat: process.env.WHATSAPP_ALLOWED_CHAT?.trim() || undefined,
     whatsappSessionName: process.env.WHATSAPP_SESSION_NAME?.trim() || undefined,
+    hohobotBaseUrl: process.env.HOHOBOT_BASE_URL?.trim() || undefined,
+    hohobotApiToken: process.env.HOHOBOT_API_TOKEN?.trim() || undefined,
   };
 }
 

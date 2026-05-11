@@ -22,6 +22,10 @@ dev = [
   "pytest>=8.3",
   "ruff>=0.8",
 ]
+cloud = [
+  "anthropic>=0.40",
+  "openai>=1.30",
+]
 
 [project.scripts]
 hobot = "hohobot.cli:main"

@@ -146,9 +146,13 @@ form.addEventListener("submit", async (e) => {
   const t0 = performance.now();
 
   try {
+    const headers = { "Content-Type": "application/json" };
+    const apiTok = localStorage.getItem("hohobot_api_token");
+    if (apiTok) headers["X-HOHOBOT-Token"] = apiTok;
+
     const r = await fetch("/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({
         agent,
         messages: [{ role: "user", content: text }],
@@ -163,7 +167,10 @@ form.addEventListener("submit", async (e) => {
       return;
     }
     const content = data.choices?.[0]?.message?.content ?? "(empty)";
-    mModel.textContent = data.model ?? "—";
+    const eng = data.hohobot_engine;
+    const srvMs = data.hohobot_ms;
+    mModel.textContent =
+      eng != null ? `${eng}${srvMs != null ? ` · ${srvMs}ms` : ""}` : data.model ?? "—";
     appendBubble("assistant", content);
   } catch (err) {
     appendBubble("assistant", `Network error: ${err}`);
