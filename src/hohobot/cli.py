@@ -36,7 +36,7 @@ def agent(prompt: str) -> None:
 
 
 @main.command()
-@click.option("--host", default="0.0.0.0", show_default=True)
+@click.option("--host", default="127.0.0.1", show_default=True)
 @click.option("--port", default=8000, show_default=True, type=int)
 def serve(host: str, port: int) -> None:
     uvicorn.run("hohobot.api.server:app", host=host, port=port, reload=False)
