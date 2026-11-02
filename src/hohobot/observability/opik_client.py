@@ -10,9 +10,13 @@ try:
 except Exception:  # pragma: no cover
     opik = None
 
+_enabled = False
+
 
 def setup_opik(settings: Settings) -> None:
-    if not settings.opik_enabled or opik is None:
+    global _enabled
+    _enabled = settings.opik_enabled and opik is not None
+    if not _enabled:
         return
     if settings.opik_local:
         opik.configure(use_local=True)
@@ -28,7 +32,7 @@ def setup_opik(settings: Settings) -> None:
 
 @contextmanager
 def trace(name: str, input_payload: dict) -> Iterator[None]:
-    if opik is None:
+    if not _enabled:
         yield
         return
 
