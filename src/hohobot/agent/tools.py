@@ -6,6 +6,7 @@ Tous les outils respectent WORKSPACE_PATH (sandbox).
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -15,7 +16,7 @@ WORKSPACE = Path(os.path.expanduser(os.getenv("WORKSPACE_PATH", "~/devbot-worksp
 def _safe_path(rel: str) -> Path:
     base = WORKSPACE.resolve()
     p = (base / rel.lstrip("/")).resolve()
-    if not str(p).startswith(str(base)):
+    if not p.is_relative_to(base):
         raise ValueError("Path escapes workspace")
     return p
 
@@ -40,7 +41,7 @@ TOOLS: list[dict] = [
     },
     {
         "name": "run_shell",
-        "description": "Exécute une commande shell allowlistée dans le workspace",
+        "description": "Exécute une commande en lecture seule dans le workspace : ls, cat, grep ou find",
         "input_schema": {
             "type": "object",
             "properties": {"cmd": {"type": "string"}, "cwd": {"type": "string"}},
@@ -49,7 +50,16 @@ TOOLS: list[dict] = [
     },
 ]
 
-ALLOWED_BINARIES = frozenset({"ls", "cat", "git", "npm", "node", "python3", "pytest", "grep", "find"})
+# Lecture seule : git, npm, node, python3 et pytest peuvent exécuter du code hors du workspace.
+ALLOWED_BINARIES = frozenset({"ls", "cat", "grep", "find"})
+ALLOWED_SHORT_FLAGS = {"ls": "lah1R", "cat": "n", "grep": "nilcvEFwr"}
+ALLOWED_FIND_FLAGS = frozenset({"-name", "-iname", "-type", "-maxdepth", "-mindepth"})
+
+
+def _flag_allowed(binary: str, flag: str) -> bool:
+    if binary == "find":
+        return flag in ALLOWED_FIND_FLAGS
+    return len(flag) > 1 and set(flag[1:]) <= set(ALLOWED_SHORT_FLAGS[binary])
 
 
 def read_file(path: str) -> str:
@@ -64,13 +74,25 @@ def list_dir(path: str = ".") -> str:
 
 
 def run_shell(cmd: str, cwd: str = ".") -> str:
-    parts = cmd.split()
+    try:
+        parts = shlex.split(cmd)
+    except ValueError as e:
+        return f"DENIED: {e}"
     if not parts or parts[0] not in ALLOWED_BINARIES:
         bin_name = parts[0] if parts else ""
         return f"DENIED: binary '{bin_name}' not in allowlist"
     work = _safe_path(cwd)
+    base = WORKSPACE.resolve()
+    for arg in parts[1:]:
+        if arg.startswith("-"):
+            if not _flag_allowed(parts[0], arg):
+                return f"DENIED: option '{arg}' not allowed for {parts[0]}"
+        elif not (work / arg).resolve().is_relative_to(base):
+            return f"DENIED: '{arg}' escapes workspace"
     try:
-        out = subprocess.run(parts, cwd=str(work), capture_output=True, text=True, timeout=60, shell=False)
+        out = subprocess.run(
+            parts, cwd=str(work), stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60, shell=False
+        )
     except subprocess.TimeoutExpired:
         return "TIMEOUT after 60s"
     except Exception as e:
