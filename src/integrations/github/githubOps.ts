@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
+import { childEnv } from "../../security/childEnv.js";
 
 export interface GithubRepoRef {
   owner: string;
@@ -16,7 +17,7 @@ export function parseGithubRepo(raw: string): GithubRepoRef {
 }
 
 function runGit(cwd: string, args: string[], token?: string): Promise<{ code: number; out: string }> {
-  const env = { ...process.env };
+  const env = childEnv();
   if (token) {
     env.GIT_TERMINAL_PROMPT = "0";
   }

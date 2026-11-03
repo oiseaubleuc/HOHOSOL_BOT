@@ -1,12 +1,13 @@
 import { spawn } from "node:child_process";
 import type { WorkspaceManager } from "../../../workspace/workspaceManager.js";
 import { resolveProjectInWorkspace } from "../../system/pathGuard.js";
+import { childEnv } from "../../../security/childEnv.js";
 import type { ActionResult } from "../types.js";
 import { MAC_APP_BUNDLES, type MacBundleOpenKey } from "./macBundles.js";
 
 function runOpen(argv: string[], cwd: string): Promise<number | null> {
   return new Promise((resolve) => {
-    const c = spawn(argv[0]!, argv.slice(1), { cwd, shell: false, stdio: "ignore" });
+    const c = spawn(argv[0]!, argv.slice(1), { cwd, env: childEnv(), shell: false, stdio: "ignore" });
     c.on("error", () => resolve(null));
     c.on("close", (code) => resolve(code));
   });

@@ -11,6 +11,28 @@ function assertSafeRelative(rel: string): void {
   }
 }
 
+const SENSITIVE_DIRS = new Set([".git", ".ssh", ".aws", ".gnupg", ".devbot"]);
+const SENSITIVE_FILES = new Set([
+  ".npmrc",
+  ".netrc",
+  ".pypirc",
+  ".git-credentials",
+  "id_rsa",
+  "id_ecdsa",
+  "id_ed25519",
+  "credentials.json",
+  "auth.json",
+]);
+
+// Lowercased because the macOS filesystem is case-insensitive: `.ENV` opens `.env`.
+function isSensitive(rel: string): boolean {
+  const parts = rel.toLowerCase().split(path.sep);
+  const name = parts[parts.length - 1]!;
+  if (parts.slice(0, -1).some((p) => SENSITIVE_DIRS.has(p))) return true;
+  if (/^\.env\.(example|sample|template)$/.test(name)) return false;
+  return /^\.env(rc)?(\.|$)/.test(name) || /\.(pem|key|p12|pfx)$/.test(name) || SENSITIVE_FILES.has(name);
+}
+
 export async function listProjectFiles(ws: WorkspaceManager, projectName: string, max = 80): Promise<ActionResult> {
   const root = resolveProjectInWorkspace(ws, projectName);
   const entries = await fs.readdir(root, { withFileTypes: true });
@@ -50,7 +72,16 @@ export async function readProjectFile(ws: WorkspaceManager, projectName: string,
   const root = resolveProjectInWorkspace(ws, projectName);
   const file = path.join(root, rel);
   ws.assertPathInWorkspace(file);
-  const raw = await fs.readFile(file, "utf8");
+  const realRoot = await fs.realpath(root);
+  const real = await fs.realpath(file);
+  const realRel = path.relative(realRoot, real);
+  if (realRel.startsWith("..") || path.isAbsolute(realRel)) {
+    throw new Error(`Path outside project: ${rel}`);
+  }
+  if (isSensitive(path.normalize(rel)) || isSensitive(realRel)) {
+    throw new Error(`Refusing to read sensitive file: ${rel}`);
+  }
+  const raw = await fs.readFile(real, "utf8");
   return {
     success: true,
     actionType: "READ_FILE",

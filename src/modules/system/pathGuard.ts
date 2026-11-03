@@ -1,11 +1,12 @@
 import path from "node:path";
 import type { WorkspaceManager } from "../../workspace/workspaceManager.js";
 import type { RuntimeConfig } from "../../config/runtimeConfig.js";
+import { canonicalPath } from "../../security/canonicalPath.js";
 
 const SAFE_NAME = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/;
 
 /**
- * Resolves a project folder name under `workspace/projects/<name>` and enforces workspace containment.
+ * Resolves a project folder name under `workspace/projects/<name>` and enforces containment in the projects folder, symlinks resolved.
  */
 export function resolveProjectInWorkspace(ws: WorkspaceManager, projectName: string): string {
   const name = projectName.trim();
@@ -13,7 +14,7 @@ export function resolveProjectInWorkspace(ws: WorkspaceManager, projectName: str
     throw new Error(`Invalid project name: ${projectName}`);
   }
   const root = path.join(ws.projectsDir(), name);
-  ws.assertPathInWorkspace(root);
+  ws.assertPathInProjects(root);
   return root;
 }
 
@@ -29,9 +30,9 @@ export function resolvePathInWorkspace(ws: WorkspaceManager, absoluteOrRelativeF
  * Validates an absolute path is inside one of configured desktop allowlist roots.
  */
 export function assertPathInDesktopAllowlist(cfg: RuntimeConfig, absoluteTarget: string): void {
-  const target = path.resolve(absoluteTarget);
+  const target = canonicalPath(absoluteTarget);
   const ok = cfg.desktopAllowedPaths.some((rootRaw) => {
-    const root = path.resolve(rootRaw);
+    const root = canonicalPath(rootRaw);
     const rel = path.relative(root, target);
     return !rel.startsWith("..") && !path.isAbsolute(rel);
   });

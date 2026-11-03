@@ -37,6 +37,9 @@ export function dryRunBlock(cfg: RuntimeConfig, actionType: ActionType, label: s
   if (
     actionType === "INSTALL_DEPENDENCIES" ||
     actionType === "RUN_DEV_SERVER" ||
+    actionType === "RUN_BUILD" ||
+    actionType === "RUN_TESTS" ||
+    actionType === "RUN_LINT" ||
     actionType === "GIT_COMMIT" ||
     actionType === "GIT_PUSH" ||
     actionType === "KILL_PORT"

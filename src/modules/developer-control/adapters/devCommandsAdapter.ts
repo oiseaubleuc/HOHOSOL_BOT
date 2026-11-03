@@ -2,6 +2,7 @@ import path from "node:path";
 import type { WorkspaceManager } from "../../../workspace/workspaceManager.js";
 import { resolveProjectInWorkspace } from "../../system/pathGuard.js";
 import { runSafeArgv } from "../../system/safeRunner.js";
+import { isLaravelArgvAllowed } from "../../../run/allowlist.js";
 import type { ActionResult } from "../types.js";
 import { devCommandsForStack, summarizeStack } from "../stackDetect.js";
 
@@ -73,7 +74,14 @@ export async function runLint(ws: WorkspaceManager, projectName: string): Promis
   };
 }
 
+export function isArtisanAllowed(argvTail: string[]): boolean {
+  return isLaravelArgvAllowed(["php", "artisan", ...argvTail], []);
+}
+
 export async function runArtisanSafe(ws: WorkspaceManager, projectName: string, argvTail: string[]): Promise<ActionResult> {
+  if (!isArtisanAllowed(argvTail)) {
+    return { success: false, actionType: "RUN_TESTS", summary: "Artisan command not allowed", error: "not on allowlist" };
+  }
   const root = resolveProjectInWorkspace(ws, projectName);
   const artisanPath = path.join(root, "artisan");
   const argv = ["php", artisanPath, ...argvTail];

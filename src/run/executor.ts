@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { runBounded } from "./boundedSpawn.js";
 import type { CommandResult, CommandStep, RunProposal } from "../types/commands.js";
 import type { ProjectFlavor } from "../types/project.js";
 import { assertCommandsAllowed } from "./allowlist.js";
@@ -38,41 +38,6 @@ export async function executeProposal(proposal: RunProposal, opts: ExecuteOption
   return results;
 }
 
-function runStep(step: CommandStep): Promise<CommandResult> {
-  const start = Date.now();
-  return new Promise((resolve) => {
-    const child = spawn(step.argv[0]!, step.argv.slice(1), {
-      cwd: step.cwd,
-      env: process.env,
-      shell: false,
-    });
-    let stdout = "";
-    let stderr = "";
-    child.stdout?.on("data", (d) => {
-      stdout += String(d);
-    });
-    child.stderr?.on("data", (d) => {
-      stderr += String(d);
-    });
-    child.on("error", (err) => {
-      resolve({
-        label: step.label,
-        argv: step.argv,
-        exitCode: null,
-        stdout,
-        stderr: stderr + String(err),
-        durationMs: Date.now() - start,
-      });
-    });
-    child.on("close", (code) => {
-      resolve({
-        label: step.label,
-        argv: step.argv,
-        exitCode: code,
-        stdout,
-        stderr,
-        durationMs: Date.now() - start,
-      });
-    });
-  });
+async function runStep(step: CommandStep): Promise<CommandResult> {
+  return { label: step.label, argv: step.argv, ...(await runBounded(step.argv, step.cwd)) };
 }

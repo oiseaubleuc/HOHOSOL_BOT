@@ -12,7 +12,7 @@ import { openAppOnly, openBrowserUrl, openFinder, openIdeOrApp, openMacBundleApp
 import { resolveMacBundleKey } from "./adapters/macBundles.js";
 import { listProjectFiles, readProjectFile, treeProjectShallow } from "./adapters/filesystemAdapter.js";
 import { gitCommit, gitCreateBranch, gitDiff, gitPush, gitStatus } from "./adapters/gitAdapter.js";
-import { runArtisanSafe, runBuild, runInstall, runLint, runTests } from "./adapters/devCommandsAdapter.js";
+import { isArtisanAllowed, runArtisanSafe, runBuild, runInstall, runLint, runTests } from "./adapters/devCommandsAdapter.js";
 import { killPort, listListeningPorts, listProcesses } from "./adapters/portsAdapter.js";
 import { inspectProject } from "./inspectProject.js";
 import type { ActionResult, ActionType } from "./types.js";
@@ -155,10 +155,10 @@ function devCommandHelpFr(): string {
     "",
     "Exemples :",
     "• `/dev inspect <projet>` — détecte la stack (Node, Laravel…)",
-    "• `/dev build|test|lint|install <projet>`",
+    "• `/dev build|test|lint|install <projet>` — validation par `/approve`",
     "• `/dev git status|diff <projet>` · `/dev git commit <projet> message` · `/dev git push <projet>`",
     "• `/dev file read <projet> chemin/relatif`",
-    "• `/dev artisan <projet> …` (Laravel)",
+    "• `/dev artisan <projet> route:list|test|migrate --pretend` (Laravel) — validation par `/approve`",
     "• `/dev open cursor <projet>` — ouvre **Cursor** directement sur ce dossier",
     "",
     "🎯 Bouton « Cursor » (Telegram)",
@@ -194,13 +194,13 @@ async function handleDevTokens(tokens: string[], ctx: TelegramBridgeContext): Pr
     return await gated(ctx, "INSTALL_DEPENDENCIES", `npm/pnpm install in ${a1}`, () => runInstall(ws, a1));
   }
   if (head === "build" && a1) {
-    return fmt(await runBuild(ws, a1));
+    return await gated(ctx, "RUN_BUILD", `build in ${a1}`, () => runBuild(ws, a1));
   }
   if (head === "test" && a1) {
-    return fmt(await runTests(ws, a1));
+    return await gated(ctx, "RUN_TESTS", `tests in ${a1}`, () => runTests(ws, a1));
   }
   if (head === "lint" && a1) {
-    return fmt(await runLint(ws, a1));
+    return await gated(ctx, "RUN_LINT", `lint in ${a1}`, () => runLint(ws, a1));
   }
   if (head === "devserver" && a1) {
     const dr = dryRunBlock(cfg, "RUN_DEV_SERVER", "dev server");
@@ -257,7 +257,10 @@ async function handleDevTokens(tokens: string[], ctx: TelegramBridgeContext): Pr
   if (head === "artisan" && a1) {
     const argvTail = tokens.slice(2);
     if (argvTail.length === 0) return "Usage: /dev artisan <project> <subcommand...>";
-    return fmt(await runArtisanSafe(ws, a1, argvTail));
+    if (!isArtisanAllowed(argvTail)) return "⛔ Artisan: only `route:list`, `test` and `migrate --pretend` are allowed.";
+    return await gated(ctx, "RUN_TESTS", `php artisan ${argvTail.join(" ")} in ${a1}`, () =>
+      runArtisanSafe(ws, a1, argvTail),
+    );
   }
 
   const active = getActiveProjectName();

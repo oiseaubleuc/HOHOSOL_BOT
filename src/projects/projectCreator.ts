@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { runBounded } from "../run/boundedSpawn.js";
 import type { WorkspaceManager } from "../workspace/workspaceManager.js";
 import type { ApprovalBus } from "../approvals/approvalBus.js";
 import { TaskLog } from "../logging/taskLog.js";
@@ -104,15 +104,8 @@ export async function createScaffoldedProject(input: {
   await log.line("INFO", "Scaffold written", { target });
 
   if (input.type === "node-api" || input.type === "nextjs") {
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn("npm", ["install"], { cwd: target, shell: false, stdio: "pipe" });
-      let err = "";
-      child.stderr?.on("data", (d) => {
-        err += String(d);
-      });
-      child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`npm install failed: ${err}`))));
-      child.on("error", reject);
-    });
+    const r = await runBounded(["npm", "install"], target);
+    if (r.exitCode !== 0) throw new Error(`npm install failed: ${r.stderr}`);
     await log.line("INFO", "npm install completed", { target });
   }
 

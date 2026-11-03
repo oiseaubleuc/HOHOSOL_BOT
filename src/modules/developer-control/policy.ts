@@ -3,6 +3,9 @@ import type { ActionType, PolicyDecision } from "./types.js";
 const APPROVAL: ActionType[] = [
   "INSTALL_DEPENDENCIES",
   "RUN_DEV_SERVER",
+  "RUN_BUILD",
+  "RUN_TESTS",
+  "RUN_LINT",
   "WRITE_FILE",
   "APPLY_PATCH",
   "GIT_CREATE_BRANCH",

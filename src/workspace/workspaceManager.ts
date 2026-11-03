@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { canonicalPath } from "../security/canonicalPath.js";
 
 export interface WorkspaceManagerOptions {
   /** Resolved absolute path; projects & clones go here instead of `root/projects`. */
@@ -73,10 +74,10 @@ export class WorkspaceManager {
   }
 
   /**
-   * Throws if `absoluteTarget` is not under workspace {@link root} nor under {@link projectsDir}.
+   * Throws if `absoluteTarget`, symlinks resolved, is not under workspace {@link root} nor under {@link projectsDir}.
    */
   assertPathInWorkspace(absoluteTarget: string): void {
-    const target = path.resolve(absoluteTarget);
+    const target = canonicalPath(absoluteTarget);
     if (this.pathIsUnder(this.root, target)) return;
     if (this.pathIsUnder(this.projectsDir(), target)) return;
     throw new Error(
@@ -84,8 +85,18 @@ export class WorkspaceManager {
     );
   }
 
+  /**
+   * Throws if `absoluteTarget`, symlinks resolved, is not under {@link projectsDir}.
+   */
+  assertPathInProjects(absoluteTarget: string): void {
+    const target = canonicalPath(absoluteTarget);
+    if (!this.pathIsUnder(this.projectsDir(), target)) {
+      throw new Error(`Path outside projects: ${target}`);
+    }
+  }
+
   private pathIsUnder(rootDir: string, target: string): boolean {
-    const root = path.resolve(rootDir);
+    const root = canonicalPath(rootDir);
     const rel = path.relative(root, target);
     return !rel.startsWith("..") && !path.isAbsolute(rel);
   }
